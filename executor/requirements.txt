@@ -1,0 +1,5 @@
+yapf==0.29.0
+flake8==3.7.9
+pyzmq==19.0.0
+psutil==5.7.0
+gpuinfo==1.0.0a6
