@@ -3,25 +3,24 @@ import time
 import zmq
 import logging
 import psutil
-import sys
 from threading import Thread
 
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
-stream = logging.StreamHandler(sys.stdout)
-stream.setLevel(logging.INFO)
-logger.addHandler(stream)
-
 
 class HeartBeat(Thread):
-    def __init__(self, master_port=5000, update_frequency=2):
+    def __init__(self, master_ip='*', master_port=5000, update_frequency=2):
         Thread.__init__(self)
 
-        self.master_port = os.getenv('EXECUTION_MANAGER_HEARTBEAT_PORT', master_port)
         self.update_frequency = update_frequency
+
         self.process_id = os.getpid()
-        self._total_ram_size = psutil.virtual_memory().total / 2.**30
+        self._total_ram_size = psutil.virtual_memory().total
+        self.gracefull_shutdown = False
+
+        self.master_ip = os.getenv('EXECUTION_MANAGER_IP', master_ip)
+        self.master_port = os.getenv('EXECUTION_MANAGER_HEARTBEAT_PORT', master_port)
 
         try:
             self.socket = self.intialize_master_connection()
@@ -32,8 +31,8 @@ class HeartBeat(Thread):
     def intialize_master_connection(self):
         context = zmq.Context()
 
-        socket = context.socket(zmq.REQ)
-        socket.connect(f"tcp://localhost:{self.master_port}")
+        socket = context.socket(zmq.PUB)
+        socket.bind(f"tcp://{self.master_ip}:{self.master_port}")
 
         logger.info(f'Connection established successfully with execution manager at port {self.master_port}')
         return socket
@@ -41,7 +40,7 @@ class HeartBeat(Thread):
     def collect_process_usage_stats(self):
         process_inst = psutil.Process(self.process_id)
 
-        ram_usage = process_inst.memory_info()[0] / 2.**30
+        ram_usage = process_inst.memory_info()[0]
         ram_usage = ram_usage / self._total_ram_size
 
         try:
@@ -50,7 +49,7 @@ class HeartBeat(Thread):
             gpu_usage = '0'
 
         cpu_percent = process_inst.cpu_percent()
-        return f"cpu {cpu_percent}%|ram {ram_usage}%| gpu {gpu_usage}%"
+        return f"pid:{self.process_id}|cpu:{cpu_percent}%|ram:{ram_usage}%|gpu:{gpu_usage}%"
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
@@ -76,9 +75,12 @@ class HeartBeat(Thread):
         return '0'  # if no entry for us then this process not using gpu
 
     def run(self):
-        logger.info(f'Heartbeat thread started')
-        while time.sleep(self.update_frequency) or True:
+        logger.info(f'Heartbeat thread started on process with id-{self.process_id}')
+
+        while time.sleep(self.update_frequency) or not self.gracefull_shutdown:
             try:
                 self.send_heartbeat()
             except Exception as e:
                 logger.error(f'Failed to send heartbeat to execution manager on port {self.master_port} due to: {e}')
+
+        # self.socket.disconnect(f"tcp://{self.master_ip}:{self.master_port}")
