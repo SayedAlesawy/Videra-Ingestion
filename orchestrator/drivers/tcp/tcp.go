@@ -68,8 +68,8 @@ func (connectionObj *Connection) Send(msg interface{}, flags zmq4.Flag) bool {
 	return errors.IsError(err)
 }
 
-// Recv A function that synchronously receives a msg from the connection
-func (connectionObj *Connection) Recv(flags zmq4.Flag) (interface{}, bool) {
+// RecvString A function that synchronously receives a string msg from the connection
+func (connectionObj *Connection) RecvString(flags zmq4.Flag) (string, bool) {
 	msg, err := connectionObj.socket.Recv(flags)
 
 	return msg, errors.IsError(err)
