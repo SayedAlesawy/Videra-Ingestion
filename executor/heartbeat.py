@@ -49,13 +49,14 @@ class HeartBeat(Thread):
             gpu_usage = '0'
 
         cpu_percent = process_inst.cpu_percent()
-        return f"pid:{self.process_id}|cpu:{cpu_percent}%|ram:{ram_usage}%|gpu:{gpu_usage}%"
+        # return f"pid:{self.process_id}|cpu:{cpu_percent}%|ram:{ram_usage}%|gpu:{gpu_usage}%"
+        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage}
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
 
         logger.info(f'sending usage_stats to execution manager: {usage_stats}')
-        self.socket.send_string(usage_stats)
+        self.socket.send_json(usage_stats)
 
     def _get_gpu_usage_by_process(self):
         """
