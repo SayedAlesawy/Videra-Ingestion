@@ -10,7 +10,7 @@ logger = logging.getLogger()
 
 
 class HeartBeat(Thread):
-    def __init__(self, master_ip='*', master_port=5000, update_frequency=2):
+    def __init__(self, master_ip='127.0.0.1', master_port=9092, update_frequency=1):
         Thread.__init__(self)
 
         self.update_frequency = update_frequency
@@ -32,7 +32,7 @@ class HeartBeat(Thread):
         context = zmq.Context()
 
         socket = context.socket(zmq.PUB)
-        socket.bind(f"tcp://{self.master_ip}:{self.master_port}")
+        socket.connect(f"tcp://{self.master_ip}:{self.master_port}")
 
         logger.info(f'Connection established successfully with execution manager at port {self.master_port}')
         return socket
@@ -46,11 +46,11 @@ class HeartBeat(Thread):
         try:
             gpu_usage = self._get_gpu_usage_by_process()
         except Exception:
-            gpu_usage = '0'
+            gpu_usage = 0
 
         cpu_percent = process_inst.cpu_percent()
         # return f"pid:{self.process_id}|cpu:{cpu_percent}%|ram:{ram_usage}%|gpu:{gpu_usage}%"
-        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage}
+        return {"pid": 1, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage}
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
@@ -73,7 +73,7 @@ class HeartBeat(Thread):
             if(str(self.process_id) in line and total_gpu_memory > 0):
                 return int(line.split(' ')[-2].replace('MiB', '')) / total_gpu_memory
 
-        return '0'  # if no entry for us then this process not using gpu
+        return 0  # if no entry for us then this process not using gpu
 
     def run(self):
         logger.info(f'Heartbeat thread started on process with id-{self.process_id}')

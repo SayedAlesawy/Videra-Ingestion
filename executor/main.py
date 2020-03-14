@@ -18,6 +18,6 @@ if __name__ == "__main__":
     heartbeat.start()
     logger.info('waiting for heartbeat to terimnate')
     time.sleep(6)
-    heartbeat.gracefull_shutdown = True
+    # heartbeat.gracefull_shutdown = True
     heartbeat.join()
     logger.info('heartbeat terminated')
