@@ -3,20 +3,18 @@ package health
 import (
 	"fmt"
 	"log"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/pebbe/zmq4"
 )
 
 // Monitor Represents the health check monitor object
 type Monitor struct {
-	topic             string                  //The topic on which the processes in the process list publish messages
+	ip                string                  //IP of the monitor
+	port              string                  //Port on which the monitor recieves messages from monitored processes
 	connectionHandler tcp.Connection          //A TCP socket used for listening to topic
 	processList       map[int]process.Process //Records when was each process last seen
 	processListMutex  *sync.Mutex             //Used to insure thread safety while accessing the process list
@@ -24,17 +22,33 @@ type Monitor struct {
 }
 
 // NewMonitor A function to obtain a monitor instance
-func NewMonitor(processes []process.Process, processListMutex *sync.Mutex, topic string, livenessProbe time.Duration) (Monitor, bool) {
-	connection, err := tcp.NewConnection(zmq4.SUB, topic)
+func NewMonitor(ip string, port string, livenessProbe time.Duration, processes []process.Process, processListMutex *sync.Mutex) (Monitor, bool) {
+	connection, err := tcp.NewConnection(zmq4.SUB, "")
 	processList := buildProcessList(processes)
 
 	return Monitor{
-		topic:             topic,
+		ip:                ip,
+		port:              port,
 		connectionHandler: connection,
 		processList:       processList,
 		processListMutex:  processListMutex,
 		livenessProbe:     livenessProbe,
 	}, err
+}
+
+// IP A function to return the monitor IP
+func (monitorObj *Monitor) IP() string {
+	return monitorObj.ip
+}
+
+// Port A function to return the monitor port
+func (monitorObj *Monitor) Port() string {
+	return monitorObj.port
+}
+
+// ProcessList A function to return the tracked processes list
+func (monitorObj *Monitor) ProcessList() map[int]process.Process {
+	return monitorObj.processList
 }
 
 // Start A function to start the monitor's work
@@ -57,15 +71,15 @@ func (monitorObj *Monitor) listenToHealthChecks(wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer monitorObj.connectionHandler.Close()
 
-	monitorObj.establishConnections()
+	monitorObj.establishConnection()
 
 	for {
-		healthCheck, _ := monitorObj.connectionHandler.Recv(zmq4.DONTWAIT)
+		healthCheck, _ := monitorObj.connectionHandler.RecvString(zmq4.DONTWAIT)
 
 		if healthCheck != "" {
 			log.Println("Received", healthCheck)
 
-			go monitorObj.updateProcessLastSeen(healthCheck.(string))
+			go monitorObj.updateProcessLastSeen(healthCheck)
 		}
 	}
 }
@@ -78,17 +92,17 @@ func (monitorObj *Monitor) trackLiveness(wg *sync.WaitGroup) {
 		monitorObj.processListMutex.Lock()
 
 		for id, process := range monitorObj.processList {
-			delay := time.Now().Sub(process.LastPing)
+			if process.Trackable {
+				delay := time.Now().Sub(process.LastPing)
 
-			if delay > monitorObj.livenessProbe {
-				connection := tcp.BuildConnectionString(process.IP, process.Port)
-				monitorObj.connectionHandler.Disconnect(connection)
+				if delay > monitorObj.livenessProbe {
+					process.Trackable = false
+					monitorObj.processList[id] = process
 
-				delete(monitorObj.processList, id)
+					log.Println(fmt.Sprintf("Process with id: %d went offline", id))
 
-				log.Println(fmt.Sprintf("Process with id: %d went offline", id))
-
-				//TODO: Add logic to kill that process and spawn another
+					//TODO: Add logic to kill that process and spawn another
+				}
 			}
 		}
 
@@ -98,27 +112,34 @@ func (monitorObj *Monitor) trackLiveness(wg *sync.WaitGroup) {
 
 // updateProcessLastSeen A function to update the last seen of processes in the process list
 func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string) {
-	processID, err := strconv.Atoi((strings.Fields(healthCheck))[1])
-	if errors.IsError(err) {
-		log.Println("Error in health check ping")
+	processUtil, err := process.ParseUtilization(healthCheck)
+	if err {
+		log.Println("Error unmarshalling health check ping")
 	}
 
 	monitorObj.processListMutex.Lock()
+	processID := processUtil.PID
+
 	process := monitorObj.processList[processID]
+
+	if !process.Trackable {
+		process.Trackable = true
+	}
+	process.CPUUtil = processUtil.CPU
+	process.GPUUtil = processUtil.GPU
+	process.RAMUsage = processUtil.RAM
 	process.LastPing = time.Now()
+
 	monitorObj.processList[processID] = process
+
 	monitorObj.processListMutex.Unlock()
 }
 
-// establishConnections A function to establish connections with the processes in the process list
-func (monitorObj *Monitor) establishConnections() {
-	var connections []string
+// establishConnection A function to establish connection with the monitor port
+func (monitorObj *Monitor) establishConnection() {
+	connection := tcp.BuildConnectionString(monitorObj.ip, monitorObj.port)
 
-	for _, process := range monitorObj.processList {
-		connections = append(connections, tcp.BuildConnectionString(process.IP, process.Port))
-	}
-
-	monitorObj.connectionHandler.Connect(connections...)
+	monitorObj.connectionHandler.Bind(connection)
 }
 
 // buildProcessList A function to build the process list out of the processes slice
