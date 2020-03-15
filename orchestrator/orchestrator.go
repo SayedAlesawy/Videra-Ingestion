@@ -8,8 +8,9 @@ import (
 	"gocv.io/x/gocv"
 )
 
-//VideoFrames struct to wrap frames information
-type VideoFrames struct {
+//VideoPackage struct to wrap frames
+type VideoPackage struct {
+	ID      int      `json:"id"`
 	Rows    int      `json:"rows"`
 	Columns int      `json:"columns"`
 	Count   int      `json:"count"`
@@ -26,14 +27,16 @@ func main() {
 		return
 	}
 
+	packageID := 0
 	img := gocv.NewMat()
 	defer img.Close()
 
 	//will be read later from config file, or calculated
 	slaveFramesCapacity := 100
-	processedFrames := VideoFrames{Count: 0, Frames: make([][]byte, 0, slaveFramesCapacity)}
+	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, slaveFramesCapacity)}
 
 	var sentMessage *string
+
 	for {
 		if ok := video.Read(&img); !ok {
 			log.Printf("Finished parsing: %v\n", inputFile)
@@ -45,10 +48,13 @@ func main() {
 
 		processedFrames.Rows = img.Rows()
 		processedFrames.Columns = img.Cols()
+
 		processedFrames.Frames = append(processedFrames.Frames, img.ToBytes())
 		processedFrames.Count++
 
 		if len(processedFrames.Frames) == slaveFramesCapacity {
+			processedFrames.ID = packageID
+			packageID++
 			sentMessage = parseMessage(&processedFrames)
 			sendMessage(sentMessage)
 			processedFrames.clear()
@@ -56,7 +62,7 @@ func main() {
 	}
 }
 
-func parseMessage(frames *VideoFrames) *string {
+func parseMessage(frames *VideoPackage) *string {
 	parsedBytes, err := json.Marshal(*frames)
 
 	if err != nil {
@@ -68,7 +74,7 @@ func parseMessage(frames *VideoFrames) *string {
 	return &parsedMessage
 }
 
-func (frames *VideoFrames) clear() {
+func (frames *VideoPackage) clear() {
 	frames.Count = 0
 	frames.Frames = frames.Frames[:0]
 }
