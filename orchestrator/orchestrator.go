@@ -39,6 +39,13 @@ func main() {
 
 	for {
 		if ok := video.Read(&img); !ok {
+			if processedFrames.Count != 0 {
+				processedFrames.ID = packageID
+				packageID++
+				sentMessage = parseMessage(&processedFrames)
+				sendMessage(sentMessage)
+				processedFrames.clear()
+			}
 			log.Printf("Finished parsing: %v\n", inputFile)
 			return
 		}
