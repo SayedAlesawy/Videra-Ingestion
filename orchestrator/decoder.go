@@ -57,7 +57,7 @@ func (decoder *VideoDecoder) Close() {
 	decoder.video.Close()
 }
 
-// DecodeEntire decodes entire video in decoder file, and returns result in channel
+// DecodeEntire decodes entire video, and returns result in channel
 func (decoder *VideoDecoder) DecodeEntire(ch chan *string) int {
 	log.Printf("Decoding file %v\n", decoder.inputFile)
 	if !decoder.IsOpen() {
@@ -70,8 +70,9 @@ func (decoder *VideoDecoder) DecodeEntire(ch chan *string) int {
 
 	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, slaveFramesCapacity)}
 
-	for {
+	decoder.Reset()
 
+	for {
 		//if channel has enough message in queue, wait until some messages are dequeued
 		for len(ch) == maxChannelSize {
 			time.Sleep(defaultSleepingSeconds * time.Second)
@@ -105,6 +106,55 @@ func (decoder *VideoDecoder) DecodeEntire(ch chan *string) int {
 	}
 }
 
+// DecodePackage decodes certain package from video, and returns result in channel
+func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) bool {
+	log.Printf("Decoding package %v from file %v\n", packageID, decoder.inputFile)
+	if !decoder.IsOpen() {
+		return false
+	}
+
+	img := gocv.NewMat()
+	defer img.Close()
+
+	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, slaveFramesCapacity)}
+
+	decoder.Reset()
+	decoder.video.Grab(packageID * slaveFramesCapacity)
+
+	for {
+		//if channel has enough message in queue, wait until some messages are dequeued
+		for len(ch) == maxChannelSize {
+			time.Sleep(defaultSleepingSeconds * time.Second)
+		}
+
+		if ok := decoder.video.Read(&img); !ok {
+
+			if processedFrames.Count != 0 {
+				sendPackage(&packageID, &processedFrames, ch)
+			}
+
+			log.Printf("Finished parsing package %v from file %v,\n", packageID, decoder.inputFile)
+			return true
+		}
+
+		if img.Empty() {
+			continue
+		}
+
+		processedFrames.Rows = img.Rows()
+		processedFrames.Columns = img.Cols()
+
+		processedFrames.Frames = append(processedFrames.Frames, img.ToBytes())
+		processedFrames.Count++
+
+		if len(processedFrames.Frames) == slaveFramesCapacity {
+			sendPackage(&packageID, &processedFrames, ch)
+			return true
+		}
+	}
+}
+
+// sendPackage is helper function to package frame and send it via channel
 func sendPackage(packageID *int, processedFrames *VideoPackage, ch chan *string) {
 	processedFrames.ID = *packageID
 	log.Printf("Finished parsing package: %v,\n", *packageID)
@@ -114,6 +164,7 @@ func sendPackage(packageID *int, processedFrames *VideoPackage, ch chan *string)
 	processedFrames.clear()
 }
 
+// parsePackage is helper function to parse video package into json format
 func parsePackage(frames *VideoPackage) *string {
 	parsedBytes, err := json.Marshal(*frames)
 
@@ -126,6 +177,7 @@ func parsePackage(frames *VideoPackage) *string {
 	return &parsedMessage
 }
 
+// clear is helper function to clear video package
 func (frames *VideoPackage) clear() {
 	frames.Count = 0
 	frames.Frames = frames.Frames[:0]
