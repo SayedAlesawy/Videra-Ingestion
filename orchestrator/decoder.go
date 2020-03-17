@@ -10,33 +10,33 @@ import (
 
 // VideoPackage struct to wrap frames
 type VideoPackage struct {
-	ID      int      `json:"id"`
-	Rows    int      `json:"rows"`
-	Columns int      `json:"columns"`
-	Count   int      `json:"count"`
-	Frames  [][]byte `json:"frames"`
+	ID      int      `json:"id"`      //id of package
+	Rows    int      `json:"rows"`    //number of rows
+	Columns int      `json:"columns"` //number of columns
+	Count   int      `json:"count"`   //number of frames
+	Frames  [][]byte `json:"frames"`  //decoded frames
 }
 
 // VideoDecoder represents decoder for video file
 type VideoDecoder struct {
-	inputFile             string
-	video                 *gocv.VideoCapture
-	packageFramesCapacity int
-	maxChannelSize        int
+	inputFile       string             //input file name
+	video           *gocv.VideoCapture //opencv video capture file
+	packageCapacity int                //max number of frames for package
+	channelCapacity int                //max channel buffer size, zero or less for infinite buffer
 }
 
 const defaultSleepingSeconds = 3 // specifies how long to wait when channel is full
 
 // NewVideoDecoder creats video decoder instance
-// maxChannelSize specifies max channel buffer size, zero or less for infinite buffer
-// packageFramesCapacity specifies max number of frames for package
-func NewVideoDecoder(inputFile string, packageFramesCapacity int, maxChannelSize int) (VideoDecoder, error) {
+// channelCapacity specifies max number of frames for package
+// packageCapacity specifies max number of frames for package
+func NewVideoDecoder(inputFile string, packageCapacity int, channelCapacity int) (VideoDecoder, error) {
 	video, err := gocv.VideoCaptureFile(inputFile)
 	return VideoDecoder{
-		inputFile:             inputFile,
-		video:                 video,
-		packageFramesCapacity: packageFramesCapacity,
-		maxChannelSize:        maxChannelSize,
+		inputFile:       inputFile,
+		video:           video,
+		packageCapacity: packageCapacity,
+		channelCapacity: channelCapacity,
 	}, err
 }
 
@@ -73,13 +73,13 @@ func (decoder *VideoDecoder) DecodeEntire(ch chan *string) {
 	img := gocv.NewMat()
 	defer img.Close()
 
-	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, decoder.packageFramesCapacity)}
+	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, decoder.packageCapacity)}
 
 	decoder.Reset()
 
 	for {
 		//if channel has enough message in queue, wait until some messages are dequeued
-		for decoder.maxChannelSize > 0 && len(ch) == decoder.maxChannelSize {
+		for decoder.channelCapacity > 0 && len(ch) == decoder.channelCapacity {
 			time.Sleep(defaultSleepingSeconds * time.Second)
 		}
 
@@ -105,7 +105,7 @@ func (decoder *VideoDecoder) DecodeEntire(ch chan *string) {
 		processedFrames.Frames = append(processedFrames.Frames, img.ToBytes())
 		processedFrames.Count++
 
-		if len(processedFrames.Frames) == decoder.packageFramesCapacity {
+		if len(processedFrames.Frames) == decoder.packageCapacity {
 			sendPackage(&packageID, &processedFrames, ch)
 		}
 	}
@@ -122,10 +122,10 @@ func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) {
 	img := gocv.NewMat()
 	defer img.Close()
 
-	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, decoder.packageFramesCapacity)}
+	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, decoder.packageCapacity)}
 
 	decoder.Reset()
-	decoder.video.Grab(packageID * decoder.packageFramesCapacity)
+	decoder.video.Grab(packageID * decoder.packageCapacity)
 
 	for {
 
@@ -150,7 +150,7 @@ func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) {
 		processedFrames.Frames = append(processedFrames.Frames, img.ToBytes())
 		processedFrames.Count++
 
-		if len(processedFrames.Frames) == decoder.packageFramesCapacity {
+		if len(processedFrames.Frames) == decoder.packageCapacity {
 			sendPackage(&packageID, &processedFrames, ch)
 			return
 		}
