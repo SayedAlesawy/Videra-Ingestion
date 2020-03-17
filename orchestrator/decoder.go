@@ -19,21 +19,25 @@ type VideoPackage struct {
 
 // VideoDecoder represents decoder for video file
 type VideoDecoder struct {
-	inputFile string
-	video     *gocv.VideoCapture
+	inputFile             string
+	video                 *gocv.VideoCapture
+	packageFramesCapacity int
+	maxChannelSize        int
 }
 
-//will be read later from config file, or calculated
-const slaveFramesCapacity = 1000
-
-const maxChannelSize = 6
-
-const defaultSleepingSeconds = 3
+const defaultSleepingSeconds = 3 // specifies how long to wait when channel is full
 
 // NewVideoDecoder creats video decoder instance
-func NewVideoDecoder(inputFile string) (VideoDecoder, error) {
+// maxChannelSize specifies max channel buffer size, zero or less for infinite buffer
+// packageFramesCapacity specifies max number of frames for package
+func NewVideoDecoder(inputFile string, packageFramesCapacity int, maxChannelSize int) (VideoDecoder, error) {
 	video, err := gocv.VideoCaptureFile(inputFile)
-	return VideoDecoder{inputFile: inputFile, video: video}, err
+	return VideoDecoder{
+		inputFile:             inputFile,
+		video:                 video,
+		packageFramesCapacity: packageFramesCapacity,
+		maxChannelSize:        maxChannelSize,
+	}, err
 }
 
 // Reset resets opened video in vide decoder to start position
@@ -58,23 +62,24 @@ func (decoder *VideoDecoder) Close() {
 }
 
 // DecodeEntire decodes entire video, and returns result in channel
-func (decoder *VideoDecoder) DecodeEntire(ch chan *string) int {
+// closes channel when done
+func (decoder *VideoDecoder) DecodeEntire(ch chan *string) {
 	log.Printf("Decoding file %v\n", decoder.inputFile)
 	if !decoder.IsOpen() {
-		return 0
+		return
 	}
 
 	packageID := 0
 	img := gocv.NewMat()
 	defer img.Close()
 
-	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, slaveFramesCapacity)}
+	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, decoder.packageFramesCapacity)}
 
 	decoder.Reset()
 
 	for {
 		//if channel has enough message in queue, wait until some messages are dequeued
-		for len(ch) == maxChannelSize {
+		for decoder.maxChannelSize > 0 && len(ch) == decoder.maxChannelSize {
 			time.Sleep(defaultSleepingSeconds * time.Second)
 		}
 
@@ -86,8 +91,8 @@ func (decoder *VideoDecoder) DecodeEntire(ch chan *string) int {
 
 			log.Printf("Finished parsing: %v,\n", decoder.inputFile)
 			log.Printf("Total read packages: %v\n", packageID)
-
-			return packageID
+			close(ch)
+			return
 		}
 
 		if img.Empty() {
@@ -100,32 +105,29 @@ func (decoder *VideoDecoder) DecodeEntire(ch chan *string) int {
 		processedFrames.Frames = append(processedFrames.Frames, img.ToBytes())
 		processedFrames.Count++
 
-		if len(processedFrames.Frames) == slaveFramesCapacity {
+		if len(processedFrames.Frames) == decoder.packageFramesCapacity {
 			sendPackage(&packageID, &processedFrames, ch)
 		}
 	}
 }
 
 // DecodePackage decodes certain package from video, and returns result in channel
-func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) bool {
+// closes channel when done
+func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) {
 	log.Printf("Decoding package %v from file %v\n", packageID, decoder.inputFile)
 	if !decoder.IsOpen() {
-		return false
+		return
 	}
 
 	img := gocv.NewMat()
 	defer img.Close()
 
-	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, slaveFramesCapacity)}
+	processedFrames := VideoPackage{Count: 0, Frames: make([][]byte, 0, decoder.packageFramesCapacity)}
 
 	decoder.Reset()
-	decoder.video.Grab(packageID * slaveFramesCapacity)
+	decoder.video.Grab(packageID * decoder.packageFramesCapacity)
 
 	for {
-		//if channel has enough message in queue, wait until some messages are dequeued
-		for len(ch) == maxChannelSize {
-			time.Sleep(defaultSleepingSeconds * time.Second)
-		}
 
 		if ok := decoder.video.Read(&img); !ok {
 
@@ -134,7 +136,8 @@ func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) bool 
 			}
 
 			log.Printf("Finished parsing package %v from file %v,\n", packageID, decoder.inputFile)
-			return true
+			close(ch)
+			return
 		}
 
 		if img.Empty() {
@@ -147,9 +150,9 @@ func (decoder *VideoDecoder) DecodePackage(packageID int, ch chan *string) bool 
 		processedFrames.Frames = append(processedFrames.Frames, img.ToBytes())
 		processedFrames.Count++
 
-		if len(processedFrames.Frames) == slaveFramesCapacity {
+		if len(processedFrames.Frames) == decoder.packageFramesCapacity {
 			sendPackage(&packageID, &processedFrames, ch)
-			return true
+			return
 		}
 	}
 }
