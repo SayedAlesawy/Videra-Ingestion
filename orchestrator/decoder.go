@@ -50,7 +50,7 @@ func (decoder *VideoDecoder) Reset() error {
 
 // IsOpen checks if a file is opened in video decoder
 func (decoder *VideoDecoder) IsOpen() bool {
-	if decoder == nil || !decoder.video.IsOpened() {
+	if !decoder.video.IsOpened() {
 		return false
 	}
 	return true
@@ -169,7 +169,7 @@ func sendPackage(packageID *int, processedFrames *VideoPackage, ch chan *string)
 
 // parsePackage is helper function to parse video package into json format
 func parsePackage(frames *VideoPackage) *string {
-	parsedBytes, err := json.Marshal(*frames)
+	parsedBytes, err := json.Marshal(frames)
 
 	if err != nil {
 		log.Println("Error parsing video frames: ", err)
