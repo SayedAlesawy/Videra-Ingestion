@@ -4,8 +4,8 @@ import cv2
 
 
 class Receiver:
-    def __init__(self, stride):  # should add any additional configs here
-        self.stride = stride
+    def __init__(self, batchSize):  # should add any additional configs here
+        self.batchSize = batchSize
 
     def initializeConnection(self):
         context = zmq.Context()
@@ -26,10 +26,10 @@ class Receiver:
 
         # check the frames being read are within boundaries
         # should raise an exception if not
-        if frameIdx >= 0 and frameIdx + self.stride <= totalFrames:
+        if frameIdx >= 0 and frameIdx + self.batchSize <= totalFrames:
             cap.set(cv2.CAP_PROP_POS_FRAMES, frameIdx)
             ret, frame = cap.read()
-            for i in range(self.stride):
+            for i in range(self.batchSize):
                 yield frame
                 ret, frame = cap.read()
 
