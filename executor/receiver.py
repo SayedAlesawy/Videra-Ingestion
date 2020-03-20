@@ -1,6 +1,7 @@
 import zmq
 import json
 import cv2
+from execution_worker import ExecutionWorker
 
 
 def show_frames(frames):  # utility function for debugging
@@ -30,7 +31,6 @@ class Receiver:
         batchSize = info["batchSize"]
         cap = cv2.VideoCapture(info["path"])
         totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
         if batchSize > self.stride:
             # check the frames being read are within boundaries
             # should raise an exception if not
@@ -49,12 +49,15 @@ class Receiver:
 
 
 if __name__ == "__main__":
-    receiver = Receiver(5)
+    receiver = Receiver(1)
     receiver.initializeConnection()
     while True:
         message = receiver.receiveData()
         print("Received request: %s" % message)
         frame_gen = receiver.getFrames(message)
+        ew = ExecutionWorker(message.get('path'))
+        ew.execute_packets(frame_gen)
+        """
         while True:
             try:
                 frames = next(frame_gen)
@@ -62,5 +65,5 @@ if __name__ == "__main__":
             except StopIteration:
                 print("the end of this patch")
                 break
-
+        """
         receiver.reply()

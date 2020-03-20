@@ -9,8 +9,8 @@ socket.connect("tcp://localhost:5555")
 
 for request in range(10):  # 10 is an arbitrary number
     info = {
-        "path": "/home/yasmeen/Desktop/video.mkv",
-        "frameIndex": 34000,
+        "path": "./mm.mp4",  # just ake any video name in a relative driectory, videos are ignored
+        "frameIndex": 60,
         "batchSize": 20
     }
     print("Sending request %s …" % request)
