@@ -5,6 +5,7 @@
 *.so
 *.dylib
 *venv
+**.mp4
 # Test binary, built with `go test -c`
 *.test
 **__pycache*
