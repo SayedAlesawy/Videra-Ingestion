@@ -7,7 +7,7 @@ print("Connecting to server…")
 socket = context.socket(zmq.REQ)
 socket.connect("tcp://localhost:5555")
 
-for request in range(10): #10 is an arbitrary number
+for request in range(10):  # 10 is an arbitrary number
     info = {
         "path": "/home/yasmeen/Desktop/video.mkv",
         "frameIndex": 34000
