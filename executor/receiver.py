@@ -32,7 +32,11 @@ class Receiver:
 
     def get_batch_metadata(self):
         message = self.socket.recv_json()
-        metadata = json.loads(message)
+        if type(message) is dict:
+            metadata = message
+        else:
+            metadata = json.loads(message)
+
         logger.info("Received Job Meta: %s" % metadata)
         self.metadata = metadata
 
