@@ -1,7 +1,10 @@
 import zmq
 import json
 import cv2
-from execution_worker import ExecutionWorker
+import logging
+
+logging.getLogger().setLevel(logging.INFO)
+logger = logging.getLogger()
 
 
 def show_frames(frames):  # utility function for debugging
@@ -13,57 +16,56 @@ def show_frames(frames):  # utility function for debugging
 class Receiver:
     def __init__(self, stride):  # should add any additional configs here
         self.stride = stride
+        self.metadata = {}
+        self.initializeConnection()
 
-    def initializeConnection(self):
+    def initializeConnection(self, port=5555, host='*'):
         context = zmq.Context()
 
         socket = context.socket(zmq.REP)
-        socket.bind("tcp://*:5555")
+        socket.bind(f"tcp://{host}:{port}")
+        logger.info(f'Established connection with master on tcp://{host}:{port}')
         self.socket = socket
 
-    def receiveData(self):
-        message = self.socket.recv_json()
-        message = json.loads(message)
-        return message
+    def model_path(self):
+        return self.metadata.get('path')
 
-    def getFrames(self, info):
+    def get_batch_metadata(self):
+        message = self.socket.recv_json()
+        metadata = json.loads(message)
+        logger.info("Received Job Meta: %s" % metadata)
+        self.metadata = metadata
+
+    def validate_metadata(self):
+        info = self.metadata
         frameIdx = info["frameIndex"]
         batchSize = info["batchSize"]
+
         cap = cv2.VideoCapture(info["path"])
         totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        if batchSize > self.stride:
-            # check the frames being read are within boundaries
-            # should raise an exception if not
-            if frameIdx >= 0 and frameIdx + batchSize <= totalFrames:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, frameIdx)
-                for i in range(0, batchSize, self.stride):
-                    frames = []
-                    for i in range(self.stride):
-                        ret, frame = cap.read()
-                        frames.append(frame)
+        logger.info('validating job metadata')
 
-                    yield frames
+        if batchSize > self.stride and frameIdx >= 0 and frameIdx + batchSize <= totalFrames:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frameIdx)
+            logger.info('metadata valid, parsing batch')
+            return cap
+        else:
+            logger.info('batch discared due to inconsistent batch info')
+            return False
+
+    def generate_data(self):
+        self.get_batch_metadata()
+        cap = self.validate_metadata()
+        if(cap):
+            for i in range(0, self.metadata['batchSize'], self.stride):
+                frames = []
+                for i in range(self.stride):
+                    ret, frame = cap.read()
+                    frames.append(frame)
+
+                yield frames
+
+        self.reply()
 
     def reply(self):
         self.socket.send(b"World")
-
-
-if __name__ == "__main__":
-    receiver = Receiver(1)
-    receiver.initializeConnection()
-    while True:
-        message = receiver.receiveData()
-        print("Received request: %s" % message)
-        frame_gen = receiver.getFrames(message)
-        ew = ExecutionWorker(message.get('path'))
-        ew.execute_packets(frame_gen)
-        """
-        while True:
-            try:
-                frames = next(frame_gen)
-                # show_frames(frames)
-            except StopIteration:
-                print("the end of this patch")
-                break
-        """
-        receiver.reply()

@@ -25,9 +25,11 @@ class ExecutionWorker():
             for packet in packets:
                 processed_packets_count += 1
                 self.execute_packet(packet)
-        except StopIteration:
-            logger.info(f'succesfully processed {processed_packets_count}')
+        except Exception as e:
+            logger.error(f'failed to process packets due to {e}')
+            return None
 
+        logger.info(f'succesfully processed {processed_packets_count}')
         return self.labels
 
     def execute_packet(self, data_packet):
