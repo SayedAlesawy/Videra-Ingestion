@@ -1,6 +1,14 @@
 package errors
 
-import "log"
+import (
+	"errors"
+	"log"
+)
+
+// New Creates a custom error with specified msg
+func New(msg string) error {
+	return errors.New(msg)
+}
 
 // IsError A function to check if an error has occurred
 func IsError(err error) bool {
