@@ -30,6 +30,9 @@ type Monitor struct {
 	processList       map[int]process.Process //Records when was each process last seen
 	processListMutex  *sync.Mutex             //Used to insure thread safety while accessing the process list
 	livenessProbe     time.Duration           //The max allowed delay after which a process is considered dead
+	activeRoutines    int                     //The number of active routines the monitor executes
+	wg                sync.WaitGroup          //Used to wait on fired goroutines
+	shutdown          chan bool               //Used to handle shutdown signals
 }
 
 // MonitorInstance A function that returns a health monitor instance
@@ -42,6 +45,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
 
 		processList := buildProcessList(processes)
+		activeRoutines := 2
 
 		monitorInstance = &Monitor{
 			ip:                configObj.IP,
@@ -50,6 +54,9 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			processList:       processList,
 			processListMutex:  &sync.Mutex{},
 			livenessProbe:     time.Duration(configObj.LivenessProbe) * time.Second,
+			activeRoutines:    activeRoutines,
+			wg:                sync.WaitGroup{},
+			shutdown:          make(chan bool, activeRoutines),
 		}
 	})
 
@@ -75,68 +82,97 @@ func (monitorObj *Monitor) ProcessList() map[int]process.Process {
 func (monitorObj *Monitor) Start() {
 	log.Println(logPrefix, "Starting Monitor")
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	monitorObj.wg.Add(monitorObj.activeRoutines)
 
 	//Listen to health check signals sent by tracked processes in the process list
-	go monitorObj.listenToHealthChecks(&wg)
+	go monitorObj.listenToHealthChecks()
 
 	//Update the liveness status of processes in the process list
-	go monitorObj.trackLiveness(&wg)
+	go monitorObj.trackLiveness()
+}
 
-	//Wait for both threads to finish execution - waits forever
-	wg.Wait()
+// Shutdown A function to gracefully shutdown the monitor
+func (monitorObj *Monitor) Shutdown() {
+	log.Println(logPrefix, "Shutting down health check monitor")
+
+	for i := 0; i < monitorObj.activeRoutines; i++ {
+		monitorObj.shutdown <- true
+	}
+
+	log.Println(logPrefix, "Waiting for monitoring routines to terminate")
+	monitorObj.wg.Wait()
+
+	log.Println(logPrefix, "Health check monitor shutdown successfully")
 }
 
 // listenToHealthChecks A function to listen to health checks
-func (monitorObj *Monitor) listenToHealthChecks(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (monitorObj *Monitor) listenToHealthChecks() {
+	defer monitorObj.wg.Done()
 	defer monitorObj.connectionHandler.Close()
 
 	monitorObj.establishConnection()
 	log.Println(logPrefix, "Listening for health checks")
 
+	var updateLastSeenWG sync.WaitGroup
+
 	for {
-		healthCheck, _ := monitorObj.connectionHandler.RecvString(zmq4.DONTWAIT)
+		select {
+		case <-monitorObj.shutdown:
+			log.Println(logPrefix, "Health checker is shutting down")
+			updateLastSeenWG.Wait()
 
-		if healthCheck != "" {
-			log.Println(logPrefix, "Received", healthCheck)
+			return
+		default:
+			healthCheck, _ := monitorObj.connectionHandler.RecvString(zmq4.DONTWAIT)
 
-			go monitorObj.updateProcessLastSeen(healthCheck)
+			if healthCheck != "" {
+				log.Println(logPrefix, "Received", healthCheck)
+
+				updateLastSeenWG.Add(1)
+				go monitorObj.updateProcessLastSeen(healthCheck, &updateLastSeenWG)
+			}
 		}
 	}
 }
 
 // trackLiveness A function to track the alive status of processes in the process list
-func (monitorObj *Monitor) trackLiveness(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (monitorObj *Monitor) trackLiveness() {
+	defer monitorObj.wg.Done()
 
 	log.Println(logPrefix, "Tracking processes liveness")
 
 	for {
-		monitorObj.processListMutex.Lock()
+		select {
+		case <-monitorObj.shutdown:
+			log.Println(logPrefix, "Liveness tracker is shutting down")
+			return
+		default:
+			monitorObj.processListMutex.Lock()
 
-		for id, process := range monitorObj.processList {
-			if process.Trackable {
-				delay := time.Now().Sub(process.LastPing)
+			for id, process := range monitorObj.processList {
+				if process.Trackable {
+					delay := time.Now().Sub(process.LastPing)
 
-				if delay > monitorObj.livenessProbe {
-					process.Trackable = false
-					monitorObj.processList[id] = process
+					if delay > monitorObj.livenessProbe {
+						process.Trackable = false
+						monitorObj.processList[id] = process
 
-					log.Println(logPrefix, fmt.Sprintf("Process with id: %d went offline", id))
+						log.Println(logPrefix, fmt.Sprintf("Process with id: %d went offline", id))
 
-					//TODO: Add logic to kill that process and spawn another
+						//TODO: Add logic to kill that process and spawn another
+					}
 				}
 			}
-		}
 
-		monitorObj.processListMutex.Unlock()
+			monitorObj.processListMutex.Unlock()
+		}
 	}
 }
 
 // updateProcessLastSeen A function to update the last seen of processes in the process list
-func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string) {
+func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	processUtil, err := process.ParseUtilization(healthCheck)
 	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
 
