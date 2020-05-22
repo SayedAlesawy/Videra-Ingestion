@@ -7,11 +7,6 @@ import (
 	"github.com/pebbe/zmq4"
 )
 
-// Connection Represents a TCP Connection object
-type Connection struct {
-	socket *zmq4.Socket //A TCP socket
-}
-
 // NewConnection A function to obtain and initialize a new tcp connection object
 func NewConnection(socketType zmq4.Type, topic string) (Connection, error) {
 	socket, err := zmq4.NewSocket(socketType)
