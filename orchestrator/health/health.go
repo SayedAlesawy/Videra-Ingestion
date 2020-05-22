@@ -73,6 +73,8 @@ func (monitorObj *Monitor) ProcessList() map[int]process.Process {
 
 // Start A function to start the monitor's work
 func (monitorObj *Monitor) Start() {
+	log.Println(logPrefix, "Starting Monitor")
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -92,12 +94,13 @@ func (monitorObj *Monitor) listenToHealthChecks(wg *sync.WaitGroup) {
 	defer monitorObj.connectionHandler.Close()
 
 	monitorObj.establishConnection()
+	log.Println(logPrefix, "Listening for health checks")
 
 	for {
 		healthCheck, _ := monitorObj.connectionHandler.RecvString(zmq4.DONTWAIT)
 
 		if healthCheck != "" {
-			log.Println("Received", healthCheck)
+			log.Println(logPrefix, "Received", healthCheck)
 
 			go monitorObj.updateProcessLastSeen(healthCheck)
 		}
@@ -107,6 +110,8 @@ func (monitorObj *Monitor) listenToHealthChecks(wg *sync.WaitGroup) {
 // trackLiveness A function to track the alive status of processes in the process list
 func (monitorObj *Monitor) trackLiveness(wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	log.Println(logPrefix, "Tracking processes liveness")
 
 	for {
 		monitorObj.processListMutex.Lock()
@@ -119,7 +124,7 @@ func (monitorObj *Monitor) trackLiveness(wg *sync.WaitGroup) {
 					process.Trackable = false
 					monitorObj.processList[id] = process
 
-					log.Println(fmt.Sprintf("Process with id: %d went offline", id))
+					log.Println(logPrefix, fmt.Sprintf("Process with id: %d went offline", id))
 
 					//TODO: Add logic to kill that process and spawn another
 				}
@@ -133,9 +138,7 @@ func (monitorObj *Monitor) trackLiveness(wg *sync.WaitGroup) {
 // updateProcessLastSeen A function to update the last seen of processes in the process list
 func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string) {
 	processUtil, err := process.ParseUtilization(healthCheck)
-	if err {
-		log.Println("Error unmarshalling health check ping")
-	}
+	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
 
 	monitorObj.processListMutex.Lock()
 	processID := processUtil.PID
