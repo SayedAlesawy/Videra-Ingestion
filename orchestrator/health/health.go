@@ -6,10 +6,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/config"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/pebbe/zmq4"
 )
+
+// logPrefix Used for hierarchical logging
+var logPrefix = "[Health-Monitor]"
+
+// monitorOnce Used to garauntee thread safety for singleton instances
+var monitorOnce sync.Once
+
+// monitorInstance A singleton instance of the health monitor object
+var monitorInstance *Monitor
 
 // Monitor Represents the health check monitor object
 type Monitor struct {
@@ -21,19 +32,28 @@ type Monitor struct {
 	livenessProbe     time.Duration           //The max allowed delay after which a process is considered dead
 }
 
-// NewMonitor A function to obtain a monitor instance
-func NewMonitor(ip string, port string, livenessProbe time.Duration, processes []process.Process, processListMutex *sync.Mutex) (Monitor, bool) {
-	connection, err := tcp.NewConnection(zmq4.SUB, "")
-	processList := buildProcessList(processes)
+// MonitorInstance A function that returns a health monitor instance
+func MonitorInstance(processes []process.Process) *Monitor {
+	monitorOnce.Do(func() {
+		configManager := config.ConfigurationManagerInstance("config/config_files")
+		configObj := configManager.HealthCheckMonitorConfig("health_check_monitor.yaml")
 
-	return Monitor{
-		ip:                ip,
-		port:              port,
-		connectionHandler: connection,
-		processList:       processList,
-		processListMutex:  processListMutex,
-		livenessProbe:     livenessProbe,
-	}, err
+		connection, err := tcp.NewConnection(zmq4.SUB, "")
+		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
+
+		processList := buildProcessList(processes)
+
+		monitorInstance = &Monitor{
+			ip:                configObj.IP,
+			port:              configObj.Port,
+			connectionHandler: connection,
+			processList:       processList,
+			processListMutex:  &sync.Mutex{},
+			livenessProbe:     time.Duration(configObj.LivenessProbe) * time.Second,
+		}
+	})
+
+	return monitorInstance
 }
 
 // IP A function to return the monitor IP
