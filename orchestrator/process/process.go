@@ -3,8 +3,6 @@ package process
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 )
 
 // Process Represents the spwan process by the orchestrator
@@ -35,13 +33,13 @@ func NewProcess(id int) Process {
 }
 
 // ParseUtilization A function to parse the process util stats recieved in healthchecks
-func ParseUtilization(healthCheck string) (Utilization, bool) {
+func ParseUtilization(healthCheck string) (Utilization, error) {
 	var util Utilization
 
 	err := json.Unmarshal([]byte(healthCheck), &util)
 	if err != nil {
-		return Utilization{}, errors.IsError(err)
+		return Utilization{}, err
 	}
 
-	return util, errors.IsError(err)
+	return util, err
 }
