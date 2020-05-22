@@ -7,15 +7,9 @@ import (
 	"github.com/pebbe/zmq4"
 )
 
-// Connection Represents a TCP Connection object
-type Connection struct {
-	socket *zmq4.Socket //A TCP socket
-}
-
 // NewConnection A function to obtain and initialize a new tcp connection object
-func NewConnection(socketType zmq4.Type, topic string) (Connection, bool) {
+func NewConnection(socketType zmq4.Type, topic string) (Connection, error) {
 	socket, err := zmq4.NewSocket(socketType)
-	status := errors.IsError(err)
 
 	socket.SetLinger(0)
 
@@ -23,7 +17,7 @@ func NewConnection(socketType zmq4.Type, topic string) (Connection, bool) {
 		socket.SetSubscribe(topic)
 	}
 
-	return Connection{socket: socket}, status
+	return Connection{socket: socket}, err
 }
 
 // Connect A function that connects a socket to a list of outgoing endpoints
@@ -53,7 +47,7 @@ func (connectionObj *Connection) Close() {
 }
 
 // Send A function that synchronously sends a msg on the connection
-func (connectionObj *Connection) Send(msg interface{}, flags zmq4.Flag) bool {
+func (connectionObj *Connection) Send(msg interface{}, flags zmq4.Flag) error {
 	var err error
 
 	switch msg.(type) {
@@ -62,17 +56,17 @@ func (connectionObj *Connection) Send(msg interface{}, flags zmq4.Flag) bool {
 	case []byte:
 		_, err = connectionObj.socket.SendBytes(msg.([]byte), 0)
 	default:
-		return false
+		return errors.New("Unsported message type in tcp.Send()")
 	}
 
-	return errors.IsError(err)
+	return err
 }
 
 // RecvString A function that synchronously receives a string msg from the connection
-func (connectionObj *Connection) RecvString(flags zmq4.Flag) (string, bool) {
+func (connectionObj *Connection) RecvString(flags zmq4.Flag) (string, error) {
 	msg, err := connectionObj.socket.Recv(flags)
 
-	return msg, errors.IsError(err)
+	return msg, err
 }
 
 // BuildConnectionString A function to build the connection string
