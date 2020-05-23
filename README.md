@@ -20,3 +20,8 @@ python main.py
 make build
 make run
 ```
+## Run Container
+The following will build the docker image, establish a network and like the container on to that network.
+```
+docker-compose up ingestion-engine
+```
