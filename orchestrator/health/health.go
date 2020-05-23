@@ -35,15 +35,17 @@ func MonitorInstance(processes []process.Process) *Monitor {
 		activeRoutines := 2
 
 		monitorInstance = &Monitor{
-			ip:                configObj.IP,
-			port:              configObj.Port,
-			connectionHandler: connection,
-			processList:       processList,
-			processListMutex:  &sync.Mutex{},
-			livenessProbe:     time.Duration(configObj.LivenessProbe) * time.Second,
-			activeRoutines:    activeRoutines,
-			wg:                sync.WaitGroup{},
-			shutdown:          make(chan bool, activeRoutines),
+			ip:                       configObj.IP,
+			port:                     configObj.Port,
+			connectionHandler:        connection,
+			processList:              processList,
+			processListMutex:         &sync.Mutex{},
+			livenessProbe:            time.Duration(configObj.LivenessProbe) * time.Second,
+			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
+			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Second,
+			activeRoutines:           activeRoutines,
+			wg:                       sync.WaitGroup{},
+			shutdown:                 make(chan bool, activeRoutines),
 		}
 	})
 
@@ -102,7 +104,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 
 	var updateLastSeenWG sync.WaitGroup
 
-	for {
+	for range time.Tick(monitorObj.healthCheckInterval) {
 		select {
 		case <-monitorObj.shutdown:
 			log.Println(logPrefix, "Health checker is shutting down")
@@ -128,7 +130,7 @@ func (monitorObj *Monitor) trackLiveness() {
 
 	log.Println(logPrefix, "Tracking processes liveness")
 
-	for {
+	for range time.Tick(monitorObj.livenessTrackingInterval) {
 		select {
 		case <-monitorObj.shutdown:
 			log.Println(logPrefix, "Liveness tracker is shutting down")
