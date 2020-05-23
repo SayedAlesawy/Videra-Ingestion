@@ -1,4 +1,4 @@
-name: GoPy
+name: Build
 
 on:
   push:
@@ -16,20 +16,26 @@ jobs:
     - name: Go setup
       uses: actions/setup-go@v2
       with:
-        go-version: 1.13
+        go-version: 1.14
       id: go
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
-    - name: Get go dependencies/build
+    - name: Check Go Build
       run: |
-        go get -v -t -d ./...
-        if [ -f Gopkg.toml ]; then
-            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-            dep ensure
-        fi
-        make build
+        sudo apt-get update -qq && \
+        sudo apt-get install -y -qq libzmq3-dev&&  \
+        cd orchestrator && make build
+        
+    - name: Check Python Code
+      run: |
+        sudo apt-get install -y -qq python3 python3-dev virtualenv
+        virtualenv --python=python3 venv
+        source ./venv/bin/activate
+        pip install flake8
+        cd executor && flake8 .
+
     
     #- name: Test
      # run: go test -v .
