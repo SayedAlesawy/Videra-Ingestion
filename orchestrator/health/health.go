@@ -173,9 +173,9 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 	if !process.Trackable {
 		process.Trackable = true
 	}
-	process.CPUUtil = processUtil.CPU
-	process.GPUUtil = processUtil.GPU
-	process.RAMUsage = processUtil.RAM
+	process.Utilization.CPU = processUtil.CPU
+	process.Utilization.GPU = processUtil.GPU
+	process.Utilization.RAM = processUtil.RAM
 	process.LastPing = time.Now()
 
 	monitorObj.processList[processID] = process

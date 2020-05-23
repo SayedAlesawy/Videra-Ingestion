@@ -7,9 +7,6 @@ type Process struct {
 	ID          int         //Unique process ID
 	Trackable   bool        //Indicates if the process is up an running before monitoring begins
 	LastPing    time.Time   //The last timestamp sent by the process
-	CPUUtil     float32     //Process CPU utilization
-	GPUUtil     float32     //Process GPU utilization
-	RAMUsage    float32     //Process memroy usage
 	Utilization Utilization //Stores utilization stats
 }
 
