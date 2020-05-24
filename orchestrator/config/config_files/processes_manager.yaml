@@ -1,0 +1,4 @@
+process_groups:
+  - name: "executor"
+    replicas: 3
+    command: "./start_executor.sh"
