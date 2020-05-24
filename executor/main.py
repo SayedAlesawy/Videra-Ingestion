@@ -1,8 +1,9 @@
 import os
 import sys
 import logging
-import time
+import atexit
 from heartbeat import HeartBeat
+
 
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
@@ -12,12 +13,18 @@ stream.setLevel(logging.INFO)
 logger.addHandler(stream)
 
 if __name__ == "__main__":
-    logger.info(f'Model executor process started with id-{os.getpid()}')
+
+    def exit_handler():
+        if heartbeat:
+            heartbeat.gracefull_shutdown = True
+        print('[EXEC] Process Tear Down')
+    atexit.register(exit_handler)
+
+    logger.info(f'[EXEC]  Model executor process started with id-{os.getpid()}')
     heartbeat = HeartBeat()
-    heartbeat.daemon = False
+    heartbeat.daemon = True
     heartbeat.start()
-    logger.info('waiting for heartbeat to terimnate')
-    time.sleep(6)
+    logger.info('[EXEC] waiting for heartbeat to terimnate')
     # heartbeat.gracefull_shutdown = True
     heartbeat.join()
-    logger.info('heartbeat terminated')
+    logger.info('[EXEC] heartbeat terminated, main process going down')
