@@ -168,17 +168,18 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 	monitorObj.processListMutex.Lock()
 	processID := processUtil.PID
 
-	process := monitorObj.processList[processID]
+	process, exists := monitorObj.processList[processID]
+	if exists {
+		if !process.Trackable {
+			process.Trackable = true
+		}
+		process.Utilization.CPU = processUtil.CPU
+		process.Utilization.GPU = processUtil.GPU
+		process.Utilization.RAM = processUtil.RAM
+		process.LastPing = time.Now()
 
-	if !process.Trackable {
-		process.Trackable = true
+		monitorObj.processList[processID] = process
 	}
-	process.Utilization.CPU = processUtil.CPU
-	process.Utilization.GPU = processUtil.GPU
-	process.Utilization.RAM = processUtil.RAM
-	process.LastPing = time.Now()
-
-	monitorObj.processList[processID] = process
 
 	monitorObj.processListMutex.Unlock()
 }
