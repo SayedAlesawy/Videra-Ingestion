@@ -1,25 +1,45 @@
 package process
 
 import (
-	"encoding/json"
+	"fmt"
+	"os/exec"
+
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 )
 
-// NewProcess A function to obtain a process instance
-func NewProcess(id int) Process {
+// execute A function to execute a staged process
+func (processObj *process) execute() (*exec.Cmd, error) {
+	cmd := exec.Command(processObj.Group.Command)
+
+	err := cmd.Start()
+	if errors.IsError(err) {
+		return nil, errors.New(fmt.Sprintf("Unable to start process under group: %s", processObj.Group.Name))
+	}
+
+	return cmd, nil
+}
+
+// NewProcess A function to create a new exposed process instance
+func NewProcess(pid int) Process {
 	return Process{
-		ID:        id,
-		Trackable: false,
+		Pid:       pid,
+		Trackable: true,
 	}
 }
 
-// ParseUtilization A function to parse the process util stats recieved in healthchecks
-func ParseUtilization(healthCheck string) (Utilization, error) {
-	var util Utilization
-
-	err := json.Unmarshal([]byte(healthCheck), &util)
-	if err != nil {
-		return Utilization{}, err
+// newProcess A function to create a new internal process instance
+func newProcess(group processGroup) process {
+	return process{
+		Group:   group,
+		Running: false,
 	}
+}
 
-	return util, err
+// newGroup A function to create a new process group instance
+func newProcessGroup(name string, replicas int, command string) processGroup {
+	return processGroup{
+		Name:     name,
+		Replicas: replicas,
+		Command:  command,
+	}
 }

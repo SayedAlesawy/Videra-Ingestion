@@ -166,7 +166,7 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
 
 	monitorObj.processListMutex.Lock()
-	processID := processUtil.PID
+	processID := processUtil.Pid
 
 	process, exists := monitorObj.processList[processID]
 	if exists {
@@ -196,7 +196,7 @@ func buildProcessList(processes []process.Process) map[int]process.Process {
 	processList := make(map[int]process.Process)
 
 	for _, process := range processes {
-		processList[process.ID] = process
+		processList[process.Pid] = process
 	}
 
 	return processList

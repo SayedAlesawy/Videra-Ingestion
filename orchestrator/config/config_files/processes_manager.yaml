@@ -1,4 +1,4 @@
 process_groups:
   - name: "executor"
     replicas: 3
-    command: "./start_executor.sh"
+    command: "./process/startup_scripts/start_executor.sh"
