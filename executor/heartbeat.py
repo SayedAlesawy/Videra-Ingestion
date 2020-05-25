@@ -10,12 +10,12 @@ logger = logging.getLogger()
 
 
 class HeartBeat(Thread):
-    def __init__(self, master_ip='127.0.0.1', master_port=9092, update_frequency=1):
+    def __init__(self, master_ip='127.0.0.1', master_port=9092, update_frequency=1, process_id=os.getpid()):
         Thread.__init__(self)
         self.tag = 'HEARTBEAT'
         self.update_frequency = update_frequency
 
-        self.process_id = os.getpid()
+        self.process_id = process_id
         self._total_ram_size = psutil.virtual_memory().total
         self.gracefull_shutdown = False
 
@@ -49,8 +49,7 @@ class HeartBeat(Thread):
             gpu_usage = 0
 
         cpu_percent = process_inst.cpu_percent()
-        # return f"pid:{self.process_id}|cpu:{cpu_percent}%|ram:{ram_usage}%|gpu:{gpu_usage}%"
-        return {"pid": 1, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage}
+        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage}
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
