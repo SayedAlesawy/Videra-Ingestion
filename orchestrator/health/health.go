@@ -116,6 +116,11 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 			healthCheck, _ := monitorObj.connectionHandler.RecvString(zmq4.DONTWAIT)
 
 			if healthCheck != "" {
+				exists := monitorObj.filterHealthChecks(healthCheck)
+				if !exists {
+					continue
+				}
+
 				log.Println(logPrefix, "Received", healthCheck)
 
 				updateLastSeenWG.Add(1)
@@ -175,11 +180,14 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 
 	processUtil, err := process.ParseUtilization(healthCheck)
 	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
+	if errors.IsError(err) {
+		return
+	}
 
 	monitorObj.processListMutex.Lock()
-	processID := processUtil.Pid
+	pid := processUtil.Pid
 
-	process, exists := monitorObj.processList[processID]
+	process, exists := monitorObj.processList[pid]
 	if exists {
 		if !process.Trackable {
 			process.Trackable = true
@@ -189,10 +197,26 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 		process.Utilization.RAM = processUtil.RAM
 		process.LastPing = time.Now()
 
-		monitorObj.processList[processID] = process
+		monitorObj.processList[pid] = process
 	}
 
 	monitorObj.processListMutex.Unlock()
+}
+
+func (monitorObj *Monitor) filterHealthChecks(healthCheck string) bool {
+	processUtil, err := process.ParseUtilization(healthCheck)
+	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at filterHealthChecks()"), false)
+	if errors.IsError(err) {
+		return false
+	}
+
+	pid := processUtil.Pid
+
+	monitorObj.processListMutex.Lock()
+	_, exists := monitorObj.processList[pid]
+	monitorObj.processListMutex.Unlock()
+
+	return exists
 }
 
 // establishConnection A function to establish connection with the monitor port
