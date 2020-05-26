@@ -32,7 +32,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
 
 		processList := buildProcessList(processes)
-		activeRoutines := 2
+		activeRoutines := 3
 
 		monitorInstance = &Monitor{
 			ip:                       configObj.IP,
@@ -79,6 +79,9 @@ func (monitorObj *Monitor) Start() {
 
 	//Update the liveness status of processes in the process list
 	go monitorObj.trackLiveness()
+
+	//Re-spawn dead process
+	go monitorObj.initiateRespawn()
 }
 
 // Shutdown A function to gracefully shutdown the monitor
@@ -101,7 +104,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 	defer monitorObj.connectionHandler.Close()
 
 	monitorObj.establishConnection()
-	log.Println(logPrefix, "Listening for health checks")
+	log.Println(logPrefix, "Started Health Checker")
 
 	var updateLastSeenWG sync.WaitGroup
 
@@ -134,7 +137,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 func (monitorObj *Monitor) trackLiveness() {
 	defer monitorObj.wg.Done()
 
-	log.Println(logPrefix, "Tracking processes liveness")
+	log.Println(logPrefix, "Started Liveness Tracker")
 
 	for range time.Tick(monitorObj.livenessTrackingInterval) {
 		select {
@@ -172,6 +175,40 @@ func (monitorObj *Monitor) trackLiveness() {
 						log.Println(logPrefix, fmt.Sprintf("Killed process with pid: %d", pid))
 					}
 				}
+			}
+
+			monitorObj.processListMutex.Unlock()
+		}
+	}
+}
+
+// SubmitProcesses A function used to dynamically submit new processes for tracking
+func (monitorObj *Monitor) initiateRespawn() {
+	defer monitorObj.wg.Done()
+
+	log.Println(logPrefix, "Started Process Re-spawner")
+
+	//Don't try to re-spawn processes before a readiness probe passes
+	time.Sleep(monitorObj.readinessProbe + time.Second)
+
+	for range time.Tick(monitorObj.readinessProbe) {
+		select {
+		case <-monitorObj.shutdown:
+			log.Println(logPrefix, "Process Re-spawner is shutting down")
+
+			return
+		default:
+			log.Println(logPrefix, "Initiating re-spawning")
+
+			processes := process.ProcessesManagerInstance().RespawnStagedProcesses()
+			if len(processes) == 0 {
+				continue
+			}
+
+			monitorObj.processListMutex.Lock()
+
+			for _, process := range processes {
+				monitorObj.processList[process.Pid] = process
 			}
 
 			monitorObj.processListMutex.Unlock()

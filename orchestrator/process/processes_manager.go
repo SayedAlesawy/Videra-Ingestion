@@ -39,41 +39,14 @@ func ProcessesManagerInstance() *ProcessesManager {
 func (manager *ProcessesManager) Start() []Process {
 	log.Println(logPrefix, fmt.Sprintf("Starting %d processes", len(manager.stagedProcessesList)))
 
-	var executionList []Process
-
-	for i := 0; i < len(manager.stagedProcessesList); i++ {
-		//Execute the staged process
-		cmd, err := manager.stagedProcessesList[i].execute()
-		errors.HandleError(err, fmt.Sprintf("%s Error in ProcessesManager.Start()", logPrefix), false)
-		if errors.IsError(err) {
-			continue
-		}
-
-		//Create an exposed process instance used for tracking
-		executedProcess := NewProcess(cmd.Process.Pid)
-		log.Println(logPrefix, "Start process under group:", manager.stagedProcessesList[i].Group.Name, "with PID:", executedProcess.Pid)
-
-		//Add the exposed process to the execution list
-		executionList = append(executionList, executedProcess)
-
-		//Construct the internal process instance
-		manager.stagedProcessesList[i].Handle = cmd
-		manager.stagedProcessesList[i].Running = true
-
-		//Construct the internal processes list
-		manager.processesList[manager.stagedProcessesList[i].Handle.Process.Pid] = manager.stagedProcessesList[i]
-	}
-
-	//Remove all running processes from the staging area
-	totalProcesses := len(manager.stagedProcessesList)
-	manager.filterStalledProcess()
+	executionList, succeeded, total := manager.executeStagedProcesses()
 
 	//If all processes failed to start, then panic
-	if totalProcesses == len(manager.stagedProcessesList) {
+	if succeeded == 0 {
 		errors.HandleError(errors.New("All processes failed to start"), fmt.Sprintf("%s Error in ProcessesManager.Start()", logPrefix), true)
 	}
 
-	log.Println(logPrefix, fmt.Sprintf("Started %d/%d processes successfully", totalProcesses-len(manager.stagedProcessesList), totalProcesses))
+	log.Println(logPrefix, fmt.Sprintf("Started %d/%d processes successfully", succeeded, total))
 
 	return executionList
 }
@@ -107,6 +80,57 @@ func (manager *ProcessesManager) KillProcess(pid int) error {
 	manager.stagedProcessesList = append(manager.stagedProcessesList, process)
 
 	return nil
+}
+
+// RespawnStagedProcesses Checks the staged processes list and respawn them
+func (manager *ProcessesManager) RespawnStagedProcesses() []Process {
+	if len(manager.stagedProcessesList) == 0 {
+		return []Process{}
+	}
+
+	log.Println(logPrefix, fmt.Sprintf("Re-spawning %d processes", len(manager.stagedProcessesList)))
+
+	executionList, succeeded, total := manager.executeStagedProcesses()
+
+	log.Println(logPrefix, fmt.Sprintf("Re-spawned %d/%d processes successfully", succeeded, total))
+
+	return executionList
+}
+
+// executeStagedProcesses A function to execute all processes in the statged processes list
+func (manager *ProcessesManager) executeStagedProcesses() ([]Process, int, int) {
+	var executionList []Process
+
+	for i := 0; i < len(manager.stagedProcessesList); i++ {
+		//Execute the staged process
+		cmd, err := manager.stagedProcessesList[i].execute()
+		errors.HandleError(err, fmt.Sprintf("%s Error in executeStagedProcesses()", logPrefix), false)
+		if errors.IsError(err) {
+			continue
+		}
+
+		//Create an exposed process instance used for tracking
+		executedProcess := NewProcess(cmd.Process.Pid)
+		log.Println(logPrefix, "Start process under group:", manager.stagedProcessesList[i].Group.Name, "with PID:", executedProcess.Pid)
+
+		//Add the exposed process to the execution list
+		executionList = append(executionList, executedProcess)
+
+		//Construct the internal process instance
+		manager.stagedProcessesList[i].Handle = cmd
+		manager.stagedProcessesList[i].Running = true
+
+		//Construct the internal processes list
+		manager.processesList[manager.stagedProcessesList[i].Handle.Process.Pid] = manager.stagedProcessesList[i]
+	}
+
+	//Remove all running processes from the staging area
+	total := len(manager.stagedProcessesList)
+	manager.filterStalledProcess()
+
+	succeeded := total - len(manager.stagedProcessesList)
+
+	return executionList, succeeded, total
 }
 
 // filterStalledProcess Filter the processes that are not running from the staging area
