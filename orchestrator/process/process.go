@@ -3,6 +3,7 @@ package process
 import (
 	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 )
@@ -24,6 +25,7 @@ func NewProcess(pid int) Process {
 	return Process{
 		Pid:       pid,
 		Trackable: true,
+		LastPing:  time.Now(),
 	}
 }
 
