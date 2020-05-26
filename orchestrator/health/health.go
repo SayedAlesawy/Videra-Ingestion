@@ -144,17 +144,17 @@ func (monitorObj *Monitor) trackLiveness() {
 		default:
 			monitorObj.processListMutex.Lock()
 
-			for id, process := range monitorObj.processList {
+			for pid, processObj := range monitorObj.processList {
 				var reference time.Time
 				var threshold time.Duration
 				var violation string
 
-				if process.Trackable {
-					reference = process.LastPing
+				if processObj.Trackable {
+					reference = processObj.LastPing
 					threshold = monitorObj.livenessProbe
 					violation = "violated liveness probe"
 				} else {
-					reference = process.FirstPing
+					reference = processObj.FirstPing
 					threshold = monitorObj.readinessProbe
 					violation = "violated readiness probe"
 				}
@@ -162,10 +162,15 @@ func (monitorObj *Monitor) trackLiveness() {
 				delay := time.Now().Sub(reference)
 
 				if delay > threshold {
-					log.Println(logPrefix, fmt.Sprintf("Process with id: %d %s with delay = %f secs", id, violation, delay.Seconds()))
+					log.Println(logPrefix, fmt.Sprintf("Process with pid: %d %s with delay = %f secs", pid, violation, delay.Seconds()))
 
-					delete(monitorObj.processList, id)
-					//TODO: Add logic to kill that process and spawn another
+					err := process.ProcessesManagerInstance().KillProcess(pid)
+					errors.HandleError(err, fmt.Sprintf("%v", err), false)
+					if !errors.IsError(err) {
+						delete(monitorObj.processList, pid)
+
+						log.Println(logPrefix, fmt.Sprintf("Killed process with pid: %d", pid))
+					}
 				}
 			}
 
