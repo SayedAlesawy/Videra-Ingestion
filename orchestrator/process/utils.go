@@ -23,7 +23,7 @@ func buildStagedProcessesList(managerConfig config.ProcessesManagerConfig) []pro
 	var stagedProcessesList []process
 
 	for _, group := range managerConfig.ProcessGroups {
-		groupInstance := newProcessGroup(group.Name, group.Replicas, group.Command)
+		groupInstance := newProcessGroup(group.Name, group.Replicas, group.Command, group.Script)
 
 		for i := 0; i < group.Replicas; i++ {
 			stagedProcessesList = append(stagedProcessesList, newProcess(groupInstance))
