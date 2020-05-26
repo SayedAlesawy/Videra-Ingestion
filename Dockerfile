@@ -10,6 +10,4 @@ RUN ./venv/bin/pip install -r /app/executor/requirements.txt
 
 WORKDIR /app/orchestrator
 
-ENV EXECUTION_MANAGER_IP=ingestion-engine
-
 ENTRYPOINT ["make", "run"]
