@@ -21,10 +21,9 @@ if __name__ == "__main__":
     atexit.register(exit_handler)
 
     logger.info(f'[EXEC]  Model executor process started with id-{os.getpid()}')
-    heartbeat = HeartBeat()
+    heartbeat = HeartBeat(process_id=os.getpid())
     heartbeat.daemon = True
     heartbeat.start()
     logger.info('[EXEC] waiting for heartbeat to terimnate')
-    # heartbeat.gracefull_shutdown = True
     heartbeat.join()
     logger.info('[EXEC] heartbeat terminated, main process going down')

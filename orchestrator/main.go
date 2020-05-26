@@ -13,20 +13,21 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	//TODO: Logic to spwan processes
-	processList := []process.Process{
-		process.NewProcess(1),
-		process.NewProcess(2),
-	}
+	//Init a processes manager
+	processesManager := process.ProcessesManagerInstance()
+
+	//Execute all processes
+	processesList := processesManager.Start()
 
 	//Init a health check monitor
-	monitor := health.MonitorInstance(processList)
+	monitor := health.MonitorInstance(processesList)
 
 	//Start monitor
 	monitor.Start()
 
 	select {
 	case <-signals:
+		processesManager.Shutdown()
 		monitor.Shutdown()
 	}
 }

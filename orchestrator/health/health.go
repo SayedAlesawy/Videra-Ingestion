@@ -32,7 +32,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
 
 		processList := buildProcessList(processes)
-		activeRoutines := 2
+		activeRoutines := 3
 
 		monitorInstance = &Monitor{
 			ip:                       configObj.IP,
@@ -41,6 +41,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			processList:              processList,
 			processListMutex:         &sync.Mutex{},
 			livenessProbe:            time.Duration(configObj.LivenessProbe) * time.Second,
+			readinessProbe:           time.Duration(configObj.ReadinessProbe) * time.Second,
 			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
 			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Second,
 			activeRoutines:           activeRoutines,
@@ -78,6 +79,9 @@ func (monitorObj *Monitor) Start() {
 
 	//Update the liveness status of processes in the process list
 	go monitorObj.trackLiveness()
+
+	//Re-spawn dead process
+	go monitorObj.initiateRespawn()
 }
 
 // Shutdown A function to gracefully shutdown the monitor
@@ -100,7 +104,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 	defer monitorObj.connectionHandler.Close()
 
 	monitorObj.establishConnection()
-	log.Println(logPrefix, "Listening for health checks")
+	log.Println(logPrefix, "Started Health Checker")
 
 	var updateLastSeenWG sync.WaitGroup
 
@@ -115,6 +119,11 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 			healthCheck, _ := monitorObj.connectionHandler.RecvString(zmq4.DONTWAIT)
 
 			if healthCheck != "" {
+				exists := monitorObj.filterHealthChecks(healthCheck)
+				if !exists {
+					continue
+				}
+
 				log.Println(logPrefix, "Received", healthCheck)
 
 				updateLastSeenWG.Add(1)
@@ -128,7 +137,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 func (monitorObj *Monitor) trackLiveness() {
 	defer monitorObj.wg.Done()
 
-	log.Println(logPrefix, "Tracking processes liveness")
+	log.Println(logPrefix, "Started Liveness Tracker")
 
 	for range time.Tick(monitorObj.livenessTrackingInterval) {
 		select {
@@ -138,19 +147,68 @@ func (monitorObj *Monitor) trackLiveness() {
 		default:
 			monitorObj.processListMutex.Lock()
 
-			for id, process := range monitorObj.processList {
-				if process.Trackable {
-					delay := time.Now().Sub(process.LastPing)
+			for pid, processObj := range monitorObj.processList {
+				var reference time.Time
+				var threshold time.Duration
+				var violation string
 
-					if delay > monitorObj.livenessProbe {
-						process.Trackable = false
-						monitorObj.processList[id] = process
+				if processObj.Trackable {
+					reference = processObj.LastPing
+					threshold = monitorObj.livenessProbe
+					violation = "violated liveness probe"
+				} else {
+					reference = processObj.FirstPing
+					threshold = monitorObj.readinessProbe
+					violation = "violated readiness probe"
+				}
 
-						log.Println(logPrefix, fmt.Sprintf("Process with id: %d went offline", id))
+				delay := time.Now().Sub(reference)
 
-						//TODO: Add logic to kill that process and spawn another
+				if delay > threshold {
+					log.Println(logPrefix, fmt.Sprintf("Process with pid: %d %s with delay = %f secs", pid, violation, delay.Seconds()))
+
+					err := process.ProcessesManagerInstance().KillProcess(pid)
+					errors.HandleError(err, fmt.Sprintf("%v", err), false)
+					if !errors.IsError(err) {
+						delete(monitorObj.processList, pid)
+
+						log.Println(logPrefix, fmt.Sprintf("Killed process with pid: %d", pid))
 					}
 				}
+			}
+
+			monitorObj.processListMutex.Unlock()
+		}
+	}
+}
+
+// SubmitProcesses A function used to dynamically submit new processes for tracking
+func (monitorObj *Monitor) initiateRespawn() {
+	defer monitorObj.wg.Done()
+
+	log.Println(logPrefix, "Started Process Re-spawner")
+
+	//Don't try to re-spawn processes before a readiness probe passes
+	time.Sleep(monitorObj.readinessProbe + time.Second)
+
+	for range time.Tick(monitorObj.readinessProbe) {
+		select {
+		case <-monitorObj.shutdown:
+			log.Println(logPrefix, "Process Re-spawner is shutting down")
+
+			return
+		default:
+			log.Println(logPrefix, "Initiating re-spawning")
+
+			processes := process.ProcessesManagerInstance().RespawnStagedProcesses()
+			if len(processes) == 0 {
+				continue
+			}
+
+			monitorObj.processListMutex.Lock()
+
+			for _, process := range processes {
+				monitorObj.processList[process.Pid] = process
 			}
 
 			monitorObj.processListMutex.Unlock()
@@ -164,23 +222,43 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 
 	processUtil, err := process.ParseUtilization(healthCheck)
 	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
+	if errors.IsError(err) {
+		return
+	}
 
 	monitorObj.processListMutex.Lock()
-	processID := processUtil.PID
+	pid := processUtil.Pid
 
-	process := monitorObj.processList[processID]
+	process, exists := monitorObj.processList[pid]
+	if exists {
+		if !process.Trackable {
+			process.Trackable = true
+		}
+		process.Utilization.CPU = processUtil.CPU
+		process.Utilization.GPU = processUtil.GPU
+		process.Utilization.RAM = processUtil.RAM
+		process.LastPing = time.Now()
 
-	if !process.Trackable {
-		process.Trackable = true
+		monitorObj.processList[pid] = process
 	}
-	process.CPUUtil = processUtil.CPU
-	process.GPUUtil = processUtil.GPU
-	process.RAMUsage = processUtil.RAM
-	process.LastPing = time.Now()
-
-	monitorObj.processList[processID] = process
 
 	monitorObj.processListMutex.Unlock()
+}
+
+func (monitorObj *Monitor) filterHealthChecks(healthCheck string) bool {
+	processUtil, err := process.ParseUtilization(healthCheck)
+	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at filterHealthChecks()"), false)
+	if errors.IsError(err) {
+		return false
+	}
+
+	pid := processUtil.Pid
+
+	monitorObj.processListMutex.Lock()
+	_, exists := monitorObj.processList[pid]
+	monitorObj.processListMutex.Unlock()
+
+	return exists
 }
 
 // establishConnection A function to establish connection with the monitor port
@@ -195,7 +273,7 @@ func buildProcessList(processes []process.Process) map[int]process.Process {
 	processList := make(map[int]process.Process)
 
 	for _, process := range processes {
-		processList[process.ID] = process
+		processList[process.Pid] = process
 	}
 
 	return processList

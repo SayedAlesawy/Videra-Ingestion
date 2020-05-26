@@ -30,21 +30,18 @@ func ConfigurationManagerInstance(configFilesDir string) *ConfigurationManager {
 	return configManagerInstance
 }
 
-// HealthCheckMonitorConfig A function to return the healthcheck monitor config
-func (manager *ConfigurationManager) HealthCheckMonitorConfig(filename string) HealthCheckMonitorConfig {
-	var configObj HealthCheckMonitorConfig
-	filePath := fmt.Sprintf("%s%s", os.ExpandEnv(fmt.Sprintf("%s/", manager.configFilesDir)), filename)
-
-	retrieveConfig(&configObj, filePath)
-
-	return configObj
-}
-
 // retrieveConfig A function to read a config file
-func retrieveConfig(configObj interface{}, filePath string) {
+func (manager *ConfigurationManager) retrieveConfig(configObj interface{}, filePath string) {
 	configFileContent, err := ioutil.ReadFile(filePath)
 	errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, fmt.Sprintf("%s %s", "Unable to read config file:", filePath)), true)
 
 	err = yaml.Unmarshal([]byte(configFileContent), configObj)
 	errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, fmt.Sprintf("%s %s", "Unable to unmarshal config file:", filePath)), true)
+}
+
+// getFilePath A function to get the file path given the name
+func (manager *ConfigurationManager) getFilePath(filename string) string {
+	filePath := fmt.Sprintf("%s%s", os.ExpandEnv(fmt.Sprintf("%s/", manager.configFilesDir)), filename)
+
+	return filePath
 }

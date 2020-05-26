@@ -16,6 +16,7 @@ type Monitor struct {
 	processList              map[int]process.Process //Records when was each process last seen
 	processListMutex         *sync.Mutex             //Used to insure thread safety while accessing the process list
 	livenessProbe            time.Duration           //The max allowed delay after which a process is considered dead
+	readinessProbe           time.Duration           //The max allowed delay before the process sends its first ping on startup
 	healthCheckInterval      time.Duration           //The frequency at which the monitor polls for healthchecks
 	livenessTrackingInterval time.Duration           //The frequency at which the monitor checks dead processes
 	activeRoutines           int                     //The number of active routines the monitor executes
