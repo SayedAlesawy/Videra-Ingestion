@@ -80,16 +80,7 @@ func (manager *ProcessesManager) Start() []Process {
 
 // Shutdown A function to kill all spawned processes on shutdown
 func (manager *ProcessesManager) Shutdown() {
-	for _, process := range manager.processesList {
-		pid := process.Handle.Process.Pid
-
-		err := manager.KillProcess(pid)
-		errors.HandleError(err, fmt.Sprintf("%s %s", logPrefix, err), false)
-
-		if !errors.IsError(err) {
-			log.Println(logPrefix, fmt.Sprintf("Killed process under group: %s with Pid: %d successfully", process.Group.Name, pid))
-		}
-	}
+	log.Println(logPrefix, "Processing manager is shutting down")
 }
 
 // KillProcess A function to kill a process by its pid
