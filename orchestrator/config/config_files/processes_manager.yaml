@@ -1,5 +1,5 @@
 process_groups:
   - name: "executor"
     replicas: 3
-    command: "../executor/venv/bin/python3"
-    script: "../executor/main.py"
+    command: "/app/venv/bin/python3"
+    script: "/app/executor/main.py"
