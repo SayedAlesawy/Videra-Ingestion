@@ -92,6 +92,7 @@ func (manager *ProcessesManager) KillProcess(pid int) error {
 
 	//Kill the running process
 	err := process.Handle.Process.Kill()
+	process.Handle.Process.Wait()
 	if errors.IsError(err) {
 		return errors.New(fmt.Sprintf("Unable to kill process under group: %s with Pid: %d", process.Group.Name, pid))
 	}
