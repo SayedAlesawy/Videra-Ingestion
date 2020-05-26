@@ -9,7 +9,8 @@ type ProcessesManagerConfig struct {
 type ProcessGroupConfig struct {
 	Name     string `yaml:"name"`     //The name of the process group
 	Replicas int    `yaml:"replicas"` //Specifies how many process replicas in the process group
-	Command  string `yaml:"command"`  //Speciifes the path of the entry point for each process in the group
+	Command  string `yaml:"command"`  //Speciifes the command used to run the script
+	Script   string `yaml:"script"`   //Specifies the actual script to be run for all processes in the group
 }
 
 // ProcessManagerConfig A function to return the processes manager config

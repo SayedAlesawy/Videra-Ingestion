@@ -1,4 +1,5 @@
 process_groups:
   - name: "executor"
     replicas: 3
-    command: "./process/startup_scripts/start_executor.sh"
+    command: "../executor/venv/bin/python3"
+    script: "../executor/main.py"
