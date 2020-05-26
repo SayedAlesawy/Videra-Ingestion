@@ -14,7 +14,8 @@ type ProcessesManager struct {
 // Process Represents the spwan process by the orchestrator
 type Process struct {
 	Trackable   bool        //Indicates if the process is up an running before monitoring begins
-	LastPing    time.Time   //The last timestamp sent by the process
+	FirstPing   time.Time   //The the timestamp of the first ping by the process
+	LastPing    time.Time   //The the timestamp of the last ping by the process
 	Utilization Utilization //Stores utilization stats
 	Pid         int         //Unique process ID
 }

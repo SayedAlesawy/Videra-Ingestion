@@ -24,8 +24,8 @@ func (processObj *process) execute() (*exec.Cmd, error) {
 func NewProcess(pid int) Process {
 	return Process{
 		Pid:       pid,
-		Trackable: true,
-		LastPing:  time.Now(),
+		Trackable: false,
+		FirstPing: time.Now(),
 	}
 }
 

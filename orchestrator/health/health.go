@@ -41,6 +41,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			processList:              processList,
 			processListMutex:         &sync.Mutex{},
 			livenessProbe:            time.Duration(configObj.LivenessProbe) * time.Second,
+			readinessProbe:           time.Duration(configObj.ReadinessProbe) * time.Second,
 			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
 			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Second,
 			activeRoutines:           activeRoutines,
@@ -139,17 +140,27 @@ func (monitorObj *Monitor) trackLiveness() {
 			monitorObj.processListMutex.Lock()
 
 			for id, process := range monitorObj.processList {
+				var reference time.Time
+				var threshold time.Duration
+				var violation string
+
 				if process.Trackable {
-					delay := time.Now().Sub(process.LastPing)
+					reference = process.LastPing
+					threshold = monitorObj.livenessProbe
+					violation = "violated liveness probe"
+				} else {
+					reference = process.FirstPing
+					threshold = monitorObj.readinessProbe
+					violation = "violated readiness probe"
+				}
 
-					if delay > monitorObj.livenessProbe {
-						process.Trackable = false
-						monitorObj.processList[id] = process
+				delay := time.Now().Sub(reference)
 
-						log.Println(logPrefix, fmt.Sprintf("Process with id: %d went offline", id))
+				if delay > threshold {
+					log.Println(logPrefix, fmt.Sprintf("Process with id: %d %s with delay = %f secs", id, violation, delay.Seconds()))
 
-						//TODO: Add logic to kill that process and spawn another
-					}
+					delete(monitorObj.processList, id)
+					//TODO: Add logic to kill that process and spawn another
 				}
 			}
 
