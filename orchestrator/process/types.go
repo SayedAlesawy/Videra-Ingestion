@@ -37,8 +37,9 @@ type process struct {
 
 // processGroup Represents a group of similar processes
 type processGroup struct {
-	Name     string //The name for the process group
-	Replicas int    //The number of replicas
-	Command  string //Path to the process group command
-	Script   string //Path to the process group script
+	Name     string   //The name for the process group
+	Replicas int      //The number of replicas
+	Command  string   //Path to the process group command
+	Script   string   //Path to the process group script
+	Args     []string //Array of arguments to be passed to the process
 }

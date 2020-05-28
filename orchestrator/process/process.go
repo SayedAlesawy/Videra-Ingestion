@@ -38,11 +38,12 @@ func newProcess(group processGroup) process {
 }
 
 // newGroup A function to create a new process group instance
-func newProcessGroup(name string, replicas int, command string, script string) processGroup {
+func newProcessGroup(name string, replicas int, command string, script string, args []string) processGroup {
 	return processGroup{
 		Name:     name,
 		Replicas: replicas,
 		Command:  command,
 		Script:   script,
+		Args:     args,
 	}
 }
