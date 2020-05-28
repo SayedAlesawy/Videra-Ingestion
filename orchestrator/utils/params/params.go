@@ -60,16 +60,16 @@ func OrchestratorParamsInstance() *OrchestratorParams {
 	return orchestratorParamsInstance
 }
 
-func (orchOarams *OrchestratorParams) mapParams() {
+func (orchParams *OrchestratorParams) mapParams() {
 	paramsMap := make(map[string]interface{})
 
-	paramsMap[videopathFlag] = orchOarams.VideoPath
-	paramsMap[modelPathFlag] = orchOarams.ModelPath
-	paramsMap[modelConfigPathFlag] = orchOarams.ModelConfigPath
-	paramsMap[startIdxFlag] = orchOarams.StartIdx
-	paramsMap[frameCountFlag] = orchOarams.FrameCount
+	paramsMap[videopathFlag] = orchParams.VideoPath
+	paramsMap[modelPathFlag] = orchParams.ModelPath
+	paramsMap[modelConfigPathFlag] = orchParams.ModelConfigPath
+	paramsMap[startIdxFlag] = orchParams.StartIdx
+	paramsMap[frameCountFlag] = orchParams.FrameCount
 
-	orchOarams.ArgsMap = paramsMap
+	orchParams.ArgsMap = paramsMap
 }
 
 // validate A function to validate required params

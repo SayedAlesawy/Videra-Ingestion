@@ -25,8 +25,8 @@ func buildStagedProcessesList(managerConfig config.ProcessesManagerConfig) []pro
 	var stagedProcessesList []process
 
 	for _, group := range managerConfig.ProcessGroups {
-		groupArgs := getProcessGroupArgs(group.ArgPrefix, group.ArgAssign, group.Args)
-		groupInstance := newProcessGroup(group.Name, group.Replicas, group.Command, group.Script, groupArgs)
+		groupArgs := getProcessGroupArgs(group.Script, group.ArgPrefix, group.ArgAssign, group.Args)
+		groupInstance := newProcessGroup(group.Name, group.Replicas, group.Command, groupArgs)
 
 		for i := 0; i < group.Replicas; i++ {
 			stagedProcessesList = append(stagedProcessesList, newProcess(groupInstance))
@@ -37,8 +37,8 @@ func buildStagedProcessesList(managerConfig config.ProcessesManagerConfig) []pro
 }
 
 // getProcessGroupArgs A function to construct process arguments from config
-func getProcessGroupArgs(argsPrefix string, argsAssign string, args []config.ProcessArg) []string {
-	var groupArgs []string
+func getProcessGroupArgs(script string, argsPrefix string, argsAssign string, args []config.ProcessArg) []string {
+	groupArgs := []string{script}
 
 	for _, arg := range args {
 		value := arg.Value
