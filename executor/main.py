@@ -3,6 +3,7 @@ import sys
 import logging
 import time
 from heartbeat import HeartBeat
+from params_parser import parse_process_args
 # from execution_worker import ExecutionWorker
 from receiver import Receiver
 
@@ -29,10 +30,8 @@ if __name__ == "__main__":
     time.sleep(6)
     # heartbeat.gracefull_shutdown = True
 
-    modelPath = ""
-    videoPath = ""
-    modelConfigPath = ""
-    receiver = Receiver(videoPath, modelPath, modelConfigPath)
+    args = parse_process_args()
+    receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
 
     while True:
         receiver.get_batch_metadata()
