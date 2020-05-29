@@ -11,10 +11,20 @@ import (
 // logPrefix Used for hierarchical logging
 var logPrefix = "[Params-Manager]"
 
+// Default values
 const (
-	defaultStringValue string = ""
-	defaultIntValue    int    = -1
-	defaultLogIntValue int64  = -1
+	defaultStringValue  string = ""
+	defaultIntValue     int    = -1
+	defaultLongIntValue int64  = -1
+)
+
+// Params flag names
+const (
+	videopathFlag       = "video-path"
+	modelPathFlag       = "model-path"
+	modelConfigPathFlag = "model-config-path"
+	startIdxFlag        = "start-idx"
+	frameCountFlag      = "frame-count"
 )
 
 // orchestratorParamsOnce Used to garauntee thread safety for singleton instances
@@ -26,26 +36,40 @@ var orchestratorParamsInstance *OrchestratorParams
 // OrchestratorParamsInstance A function to return the orchestrator params singleton instance
 func OrchestratorParamsInstance() *OrchestratorParams {
 	orchestratorParamsOnce.Do(func() {
-		videoPath := flag.String("video-path", "", "path to the video to be processed")
-		modelPath := flag.String("model-path", "", "path to the model to be applied")
-		configPath := flag.String("model-config-path", "", "path to the model config to be applied")
-		startIdx := flag.Int64("start-idx", -1, "starting index from which to process video at path")
-		frameCount := flag.Int64("frame-count", -1, "number of frames to process starting from start-idx")
+		videoPath := flag.String(videopathFlag, "", "path to the video to be processed")
+		modelPath := flag.String(modelPathFlag, "", "path to the model to be applied")
+		configPath := flag.String(modelConfigPathFlag, "", "path to the model config to be applied")
+		startIdx := flag.Int64(startIdxFlag, -1, "starting index from which to process video at path")
+		frameCount := flag.Int64(frameCountFlag, -1, "number of frames to process starting from start-idx")
 
 		flag.Parse()
 
 		orchestratorParams := OrchestratorParams{
-			VideoPath:       validatePath(validate("video-path", *videoPath).(string)),
-			ModelPath:       validatePath(validate("model-path", *modelPath).(string)),
-			ModelConfigPath: validatePath(validate("model-config-path", *configPath).(string)),
-			StartIdx:        validate("start-idx", *startIdx).(int64),
-			FrameCount:      validate("frame-count", *frameCount).(int64),
+			VideoPath:       validatePath(validate(videopathFlag, *videoPath).(string)),
+			ModelPath:       validatePath(validate(modelPathFlag, *modelPath).(string)),
+			ModelConfigPath: validatePath(validate(modelConfigPathFlag, *configPath).(string)),
+			StartIdx:        validate(startIdxFlag, *startIdx).(int64),
+			FrameCount:      validate(frameCountFlag, *frameCount).(int64),
 		}
+
+		orchestratorParams.mapParams()
 
 		orchestratorParamsInstance = &orchestratorParams
 	})
 
 	return orchestratorParamsInstance
+}
+
+func (orchParams *OrchestratorParams) mapParams() {
+	paramsMap := make(map[string]interface{})
+
+	paramsMap[videopathFlag] = orchParams.VideoPath
+	paramsMap[modelPathFlag] = orchParams.ModelPath
+	paramsMap[modelConfigPathFlag] = orchParams.ModelConfigPath
+	paramsMap[startIdxFlag] = orchParams.StartIdx
+	paramsMap[frameCountFlag] = orchParams.FrameCount
+
+	orchParams.ArgsMap = paramsMap
 }
 
 // validate A function to validate required params
@@ -58,7 +82,7 @@ func validate(param string, value interface{}) interface{} {
 	case int:
 		hasDefaultVal = isDefault(value.(int), defaultIntValue)
 	case int64:
-		hasDefaultVal = isDefault(value.(int64), defaultLogIntValue)
+		hasDefaultVal = isDefault(value.(int64), defaultLongIntValue)
 	default:
 		return false
 	}
