@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/health"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/ingest"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 )
 
@@ -21,6 +22,9 @@ func main() {
 
 	//Init a health check monitor
 	monitor := health.MonitorInstance(processesList)
+
+	//Register the ingestion manager as a subscriber to monitor data
+	monitor.RegisterSubscriber(ingest.IngestionManagerInstance())
 
 	//Start monitor
 	monitor.Start()
