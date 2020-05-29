@@ -43,6 +43,6 @@ if __name__ == "__main__":
     receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
     while True:
         receiver.get_batch_metadata()
-        BUSYFLAG = 1
+        heartbeat.busyFlag = 1
         process()
-        BUSYFLAG = 0
+        heartbeat.busyFlag = 0
