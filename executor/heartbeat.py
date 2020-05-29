@@ -35,7 +35,7 @@ class HeartBeat(Thread):
         socket = context.socket(zmq.PUB)
         socket.connect(f"tcp://{self.master_ip}:{self.master_port}")
 
-        logger.info(f'[{self.tag}] Connection established successfully with execution manager at port {self.master_port}') # noqa
+        logger.info(f'[{self.tag}] Connection established successfully with execution manager at port {self.master_port}')  # noqa
         return socket
 
     def collect_process_usage_stats(self):
@@ -50,7 +50,11 @@ class HeartBeat(Thread):
             gpu_usage = 0
 
         cpu_percent = process_inst.cpu_percent()
-        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage, "busyflag": self.busyFlag}
+        return {"pid": self.process_id,
+                "cpu": cpu_percent,
+                "ram": ram_usage,
+                "gpu": gpu_usage,
+                "busyflag": self.busyFlag}
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
@@ -82,7 +86,7 @@ class HeartBeat(Thread):
             try:
                 self.send_heartbeat()
             except Exception as e:
-                logger.error(f'[{self.tag}] Failed to send heartbeat to execution manager on port {self.master_port} due to: {e}') # noqa
+                logger.error(f'[{self.tag}] Failed to send heartbeat to execution manager on port {self.master_port} due to: {e}')  # noqa
 
         self.socket.disconnect(f"tcp://{self.master_ip}:{self.master_port}")
         logger.info('')
