@@ -1,9 +1,16 @@
 import os
 import sys
 import logging
-import atexit
-from params_parser import parse_process_args
+import time
 from heartbeat import HeartBeat
+# from execution_worker import ExecutionWorker
+from receiver import Receiver
+
+BUSYFLAG = 0
+
+
+def process():
+    pass
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -13,22 +20,25 @@ stream = logging.StreamHandler(sys.stdout)
 stream.setLevel(logging.INFO)
 logger.addHandler(stream)
 
-
 if __name__ == "__main__":
-
-    process_args = parse_process_args()
-
-    def exit_handler():
-        if heartbeat:
-            heartbeat.gracefull_shutdown = True
-        logger.info('[EXEC] Process shutdown successfully')
-    atexit.register(exit_handler)
-
-    logger.info(f'[EXEC]  Model executor process started with id-{os.getpid()}')
-    heartbeat = HeartBeat(process_id=os.getpid())
-    heartbeat.daemon = True
+    logger.info(f'Model executor process started with id-{os.getpid()}')
+    heartbeat = HeartBeat()
+    heartbeat.daemon = False
     heartbeat.start()
+    logger.info('waiting for heartbeat to terimnate')
+    time.sleep(6)
+    # heartbeat.gracefull_shutdown = True
 
-    logger.info('[EXEC] waiting for heartbeat to terimnate')
+    modelPath = ""
+    videoPath = ""
+    modelConfigPath = ""
+    receiver = Receiver(videoPath, modelPath, modelConfigPath)
+
+    while True:
+        receiver.get_batch_metadata()
+        BUSYFLAG = 1
+        process()
+        BUSYFLAG = 0
+
     heartbeat.join()
-    logger.info('[EXEC] heartbeat terminated, main process going down')
+    logger.info('heartbeat terminated')
