@@ -23,7 +23,7 @@ logger.addHandler(stream)
 
 if __name__ == "__main__":
 
-    process_args = parse_process_args()
+    args = parse_process_args()
 
     def exit_handler():
         if heartbeat:
