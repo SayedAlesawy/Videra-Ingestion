@@ -44,6 +44,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			readinessProbe:           time.Duration(configObj.ReadinessProbe) * time.Second,
 			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
 			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Second,
+			publishInterval:          time.Duration(configObj.PublishInterval) * time.Second,
 			activeRoutines:           activeRoutines,
 			wg:                       sync.WaitGroup{},
 			shutdown:                 make(chan bool, activeRoutines),

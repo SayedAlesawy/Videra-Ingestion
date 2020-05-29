@@ -8,6 +8,7 @@ type HealthCheckMonitorConfig struct {
 	ReadinessProbe           int    `yaml:"readiness_probe"`            //A duration (in secs) to wait for first ping
 	HealthCheckInterval      int    `yaml:"health_check_interval"`      //The frequency of polling for health checks
 	LivenessTrackingInterval int    `yaml:"liveness_tracking_interval"` //The frequency for checking dead processes
+	PublishInterval          int    `yaml:"publish_interval"`           //The frequency for publishing monitor data
 }
 
 // HealthCheckMonitorConfig A function to return the healthcheck monitor config
