@@ -80,4 +80,4 @@ class Receiver:
         self.reply()
 
     def reply(self):
-        self.socket.send(b"World")
+        self.socket.send(b"ACK")
