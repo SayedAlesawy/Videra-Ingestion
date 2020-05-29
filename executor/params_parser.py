@@ -30,4 +30,4 @@ def parse_process_args():
     if validate_args(args):
         return args
     else:
-        exit()
+        exit(1)
