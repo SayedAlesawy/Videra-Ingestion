@@ -10,6 +10,7 @@ import (
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/pubsub"
 	"github.com/pebbe/zmq4"
 )
 
@@ -32,7 +33,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
 
 		processList := buildProcessList(processes)
-		activeRoutines := 3
+		activeRoutines := 4
 
 		monitorInstance = &Monitor{
 			ip:                       configObj.IP,
@@ -53,21 +54,6 @@ func MonitorInstance(processes []process.Process) *Monitor {
 	return monitorInstance
 }
 
-// IP A function to return the monitor IP
-func (monitorObj *Monitor) IP() string {
-	return monitorObj.ip
-}
-
-// Port A function to return the monitor port
-func (monitorObj *Monitor) Port() string {
-	return monitorObj.port
-}
-
-// ProcessList A function to return the tracked processes list
-func (monitorObj *Monitor) ProcessList() map[int]process.Process {
-	return monitorObj.processList
-}
-
 // Start A function to start the monitor's work
 func (monitorObj *Monitor) Start() {
 	log.Println(logPrefix, "Starting Monitor")
@@ -82,6 +68,9 @@ func (monitorObj *Monitor) Start() {
 
 	//Re-spawn dead process
 	go monitorObj.initiateRespawn()
+
+	//Publish monitor data to subscribers
+	go monitorObj.publish()
 }
 
 // Shutdown A function to gracefully shutdown the monitor
@@ -96,6 +85,11 @@ func (monitorObj *Monitor) Shutdown() {
 	monitorObj.wg.Wait()
 
 	log.Println(logPrefix, "Health check monitor shutdown successfully")
+}
+
+// RegisterSubscriber A function to register a subscriber to the monitor data
+func (monitorObj *Monitor) RegisterSubscriber(subscriber pubsub.Subscriber) {
+	monitorObj.subscribers = append(monitorInstance.subscribers, subscriber)
 }
 
 // listenToHealthChecks A function to listen to health checks
@@ -209,6 +203,36 @@ func (monitorObj *Monitor) initiateRespawn() {
 
 			for _, process := range processes {
 				monitorObj.processList[process.Pid] = process
+			}
+
+			monitorObj.processListMutex.Unlock()
+		}
+	}
+}
+
+// publish A function to publish monitor data to subscribers
+func (monitorObj *Monitor) publish() {
+	defer monitorObj.wg.Done()
+
+	log.Println(logPrefix, "Started Process Status Publisher")
+
+	for range time.Tick(monitorObj.publishInterval) {
+		select {
+		case <-monitorObj.shutdown:
+			log.Println(logPrefix, "Process Status Publisher is shutting down")
+
+			return
+		default:
+			if len(monitorObj.subscribers) == 0 {
+				continue
+			}
+
+			log.Println(logPrefix, fmt.Sprintf("Publishing processes data to %d subscribers", len(monitorObj.subscribers)))
+
+			monitorObj.processListMutex.Lock()
+
+			for _, subscriber := range monitorObj.subscribers {
+				subscriber.Notify(monitorObj.processList)
 			}
 
 			monitorObj.processListMutex.Unlock()

@@ -6,6 +6,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/pubsub"
 )
 
 // Monitor Represents the health check monitor object
@@ -22,4 +23,5 @@ type Monitor struct {
 	activeRoutines           int                     //The number of active routines the monitor executes
 	wg                       sync.WaitGroup          //Used to wait on fired goroutines
 	shutdown                 chan bool               //Used to handle shutdown signals
+	subscribers              []pubsub.Subscriber     //Array of subscribers to publish monitor data for them
 }
