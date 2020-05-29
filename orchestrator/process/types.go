@@ -22,10 +22,11 @@ type Process struct {
 
 // Utilization Represents the process util stats received in healthchecks
 type Utilization struct {
-	Pid int     `json:"pid"` //Specifies a certain process
-	CPU float32 `json:"cpu"` //CPU utilization
-	GPU float32 `json:"gpu"` //GPU utilization
-	RAM float32 `json:"ram"` //RAM utilization
+	Pid  int     `json:"pid"`  //Specifies a certain process
+	CPU  float32 `json:"cpu"`  //CPU utilization
+	GPU  float32 `json:"gpu"`  //GPU utilization
+	RAM  float32 `json:"ram"`  //RAM utilization
+	Busy bool    `json:"busy"` //True if the porocess is executing a job
 }
 
 // process Represents the staged process structure which is more privileged than the exposed type
