@@ -33,7 +33,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
 
 		processList := buildProcessList(processes)
-		activeRoutines := 4
+		activeRoutines := 3
 
 		monitorInstance = &Monitor{
 			ip:                       configObj.IP,
@@ -41,6 +41,7 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			connectionHandler:        connection,
 			processList:              processList,
 			processListMutex:         &sync.Mutex{},
+			subscribersListMutex:     &sync.Mutex{},
 			livenessProbe:            time.Duration(configObj.LivenessProbe) * time.Second,
 			readinessProbe:           time.Duration(configObj.ReadinessProbe) * time.Second,
 			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
@@ -68,9 +69,6 @@ func (monitorObj *Monitor) Start() {
 
 	//Re-spawn dead process
 	go monitorObj.initiateRespawn()
-
-	//Publish monitor data to subscribers
-	go monitorObj.publish()
 }
 
 // Shutdown A function to gracefully shutdown the monitor
@@ -121,7 +119,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 				log.Println(logPrefix, "Received", healthCheck)
 
 				updateLastSeenWG.Add(1)
-				go monitorObj.updateProcessLastSeen(healthCheck, &updateLastSeenWG)
+				go monitorObj.updateProcessStats(healthCheck, &updateLastSeenWG)
 			}
 		}
 	}
@@ -165,6 +163,7 @@ func (monitorObj *Monitor) trackLiveness() {
 					errors.HandleError(err, fmt.Sprintf("%v", err), false)
 					if !errors.IsError(err) {
 						delete(monitorObj.processList, pid)
+						monitorObj.notify(pubsub.NewEvent(EventProcessCrashed, pid))
 
 						log.Println(logPrefix, fmt.Sprintf("Killed process with pid: %d", pid))
 					}
@@ -210,59 +209,45 @@ func (monitorObj *Monitor) initiateRespawn() {
 	}
 }
 
-// publish A function to publish monitor data to subscribers
-func (monitorObj *Monitor) publish() {
-	defer monitorObj.wg.Done()
-
-	log.Println(logPrefix, "Started Process Status Publisher")
-
-	for range time.Tick(monitorObj.publishInterval) {
-		select {
-		case <-monitorObj.shutdown:
-			log.Println(logPrefix, "Process Status Publisher is shutting down")
-
-			return
-		default:
-			if len(monitorObj.subscribers) == 0 {
-				continue
-			}
-
-			log.Println(logPrefix, fmt.Sprintf("Publishing processes data to %d subscribers", len(monitorObj.subscribers)))
-
-			monitorObj.processListMutex.Lock()
-
-			for _, subscriber := range monitorObj.subscribers {
-				subscriber.Notify(monitorObj.processList)
-			}
-
-			monitorObj.processListMutex.Unlock()
-		}
-	}
-}
-
-// updateProcessLastSeen A function to update the last seen of processes in the process list
-func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.WaitGroup) {
+// updateProcessStats A function to update the last seen of processes in the process list
+func (monitorObj *Monitor) updateProcessStats(healthCheck string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	processUtil, err := process.ParseUtilization(healthCheck)
-	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
+	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessStats()"), false)
 	if errors.IsError(err) {
 		return
 	}
 
 	monitorObj.processListMutex.Lock()
 	pid := processUtil.Pid
+	jid := processUtil.Jid
 
 	process, exists := monitorObj.processList[pid]
 	if exists {
-		if !process.Trackable {
-			process.Trackable = true
-		}
 		process.Utilization.CPU = processUtil.CPU
 		process.Utilization.GPU = processUtil.GPU
 		process.Utilization.RAM = processUtil.RAM
-		process.Utilization.Busy = processUtil.Busy
 		process.LastPing = time.Now()
+
+		//Job started
+		if !process.Utilization.Busy && processUtil.Busy {
+			monitorObj.notify(pubsub.NewEvent(EventJobStarted, pid, jid))
+		}
+
+		//Job compelted
+		if process.Utilization.Busy && !processUtil.Busy {
+			monitorObj.notify(pubsub.NewEvent(EventJobCompleted, pid, jid))
+		}
+
+		process.Utilization.Busy = processUtil.Busy
+
+		if !process.Trackable {
+			process.Trackable = true
+			process.FirstPing = process.LastPing
+
+			monitorObj.notify(pubsub.NewEvent(EventProcessOnline, pid, process))
+		}
 
 		monitorObj.processList[pid] = process
 	}
