@@ -21,7 +21,9 @@ class HeartBeat(Thread):
 
         self.master_ip = os.getenv('EXECUTION_MANAGER_IP', master_ip)
         self.master_port = os.getenv('EXECUTION_MANAGER_HEARTBEAT_PORT', master_port)
-        self.busyFlag = 0
+
+        self.busy = False
+        self.curr_job_id = 0
 
         try:
             self.socket = self.intialize_master_connection()
@@ -54,7 +56,8 @@ class HeartBeat(Thread):
                 "cpu": cpu_percent,
                 "ram": ram_usage,
                 "gpu": gpu_usage,
-                "busyflag": self.busyFlag}
+                "busy": self.busy,
+                "jid": self.curr_job_id}
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()

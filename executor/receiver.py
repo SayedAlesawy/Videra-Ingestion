@@ -48,6 +48,9 @@ class Receiver:
         logger.info("Received Job Meta: %s" % metadata)
         self.metadata = metadata
 
+    def get_job_id(self):
+        return self.metadata["jid"]
+
     def validate_metadata(self):
         info = self.metadata
         frameIdx = info["frameIndex"]

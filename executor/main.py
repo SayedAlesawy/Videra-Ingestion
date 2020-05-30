@@ -43,6 +43,8 @@ if __name__ == "__main__":
     receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
     while True:
         receiver.generate_data()  # yields frames and sends a reply
-        heartbeat.busyFlag = 1
+        heartbeat.curr_job_id = receiver.get_job_id()
+
+        heartbeat.busyFlag = True
         process()  # empty function
-        heartbeat.busyFlag = 0
+        heartbeat.busyFlag = False
