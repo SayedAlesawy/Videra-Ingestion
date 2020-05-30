@@ -52,12 +52,13 @@ class Receiver:
         info = self.metadata
         frameIdx = info["frameIndex"]
         batchSize = info["batchSize"]
+        stride = self.modelConfigs["stride"]
 
-        cap = cv2.VideoCapture(info["path"])
+        cap = cv2.VideoCapture(self.videoPath)
         totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         logger.info('validating job metadata')
 
-        if batchSize > self.stride and frameIdx >= 0 and frameIdx + batchSize <= totalFrames:
+        if batchSize > stride and frameIdx >= 0 and frameIdx + batchSize <= totalFrames:
             cap.set(cv2.CAP_PROP_POS_FRAMES, frameIdx)
             logger.info('metadata valid, parsing batch')
             return cap
