@@ -2,19 +2,12 @@ package ingest
 
 import "encoding/json"
 
-// Job statuses
-const (
-	todo       = 0
-	inProgress = 1
-	done       = 2
-)
-
 // newIngestionJob Creates a new ingestion job instance
-func newIngestionJob(startIdx int64, frameCount int64) ingestionJob {
+func newIngestionJob(jid int64, startIdx int64, frameCount int64) ingestionJob {
 	return ingestionJob{
+		jid:        jid,
 		startIdx:   startIdx,
 		frameCount: frameCount,
-		status:     todo,
 	}
 }
 
