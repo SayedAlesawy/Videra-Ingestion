@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
     while True:
-        receiver.get_batch_metadata()
+        receiver.generate_data()  # yields frames and sends a reply
         heartbeat.busyFlag = 1
-        process()
+        process()  # empty function
         heartbeat.busyFlag = 0
