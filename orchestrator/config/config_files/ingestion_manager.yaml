@@ -1,0 +1,5 @@
+worker_pool_ip: "*"
+worker_pool_port: "9093"
+worker_scanning_interval: 5
+job_size: 10
+job_send_timeout: 4
