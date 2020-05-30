@@ -21,7 +21,6 @@ type Monitor struct {
 	readinessProbe           time.Duration           //The max allowed delay before the process sends its first ping on startup
 	healthCheckInterval      time.Duration           //The frequency at which the monitor polls for healthchecks
 	livenessTrackingInterval time.Duration           //The frequency at which the monitor checks dead processes
-	publishInterval          time.Duration           //he frequency at which the monitor publishes data to subscribers
 	activeRoutines           int                     //The number of active routines the monitor executes
 	wg                       sync.WaitGroup          //Used to wait on fired goroutines
 	shutdown                 chan bool               //Used to handle shutdown signals
