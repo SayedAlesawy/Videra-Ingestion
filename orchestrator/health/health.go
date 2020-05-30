@@ -262,6 +262,7 @@ func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.Wa
 		process.Utilization.CPU = processUtil.CPU
 		process.Utilization.GPU = processUtil.GPU
 		process.Utilization.RAM = processUtil.RAM
+		process.Utilization.Busy = processUtil.Busy
 		process.LastPing = time.Now()
 
 		monitorObj.processList[pid] = process
