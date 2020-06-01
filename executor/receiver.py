@@ -20,7 +20,7 @@ class Receiver:
         self.modelConfigPath = modelConfigPath
         self.metadata = {}
         self.modelConfigs = {}
-        self.load_modelConfigs()
+        # self.load_modelConfigs()
         self.initializeConnection()
 
     def initializeConnection(self, port=5555, host='*'):
