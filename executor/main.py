@@ -5,12 +5,13 @@ import atexit
 from params_parser import parse_process_args
 from heartbeat import HeartBeat
 from receiver import Receiver
+import time
 
 BUSYFLAG = 0
 
 
 def process():
-    pass
+    time.sleep(10)
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -40,12 +41,13 @@ if __name__ == "__main__":
 
     receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
     while True:
-        receiver.generate_data()  # yields frames and sends a reply
+        receiver.get_batch_metadata()
+        receiver.reply()
         heartbeat.curr_job_id = receiver.get_job_id()
 
-        heartbeat.busyFlag = True
-        process()  # empty function
-        heartbeat.busyFlag = False
+        heartbeat.busy = True
+        process()
+        heartbeat.busy = False
 
     heartbeat.join()
     logger.info('[EXEC] heartbeat terminated, main process going down')
