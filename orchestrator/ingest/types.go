@@ -31,7 +31,7 @@ type IngestionManager struct {
 
 // ingestionJob Represents the ingestion job params
 type ingestionJob struct {
-	jid        int64 //Unique id for job
-	startIdx   int64 //Local index to start indexing from within the job range
-	frameCount int64 //Local frame count to ingest starting from the local startIdx
+	Jid         int64 `json:"jid"`          //Unique id for job
+	StartIdx    int64 `json:"start_idx"`    //Local index to start indexing from within the job range
+	FramesCount int64 `json:"frames_count"` //Local frame count to ingest starting from the local startIdx
 }
