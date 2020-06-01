@@ -60,7 +60,7 @@ func (manager *IngestionManager) workerCrashedHandler(pid int) {
 	job, exists := manager.activeJobs[pid]
 	if exists {
 		//Move the crashed worker job to todo to be retry-ied
-		manager.jobsList[job.jid] = job
+		manager.jobsList[job.Jid] = job
 
 		//Remove it from active jobs
 		delete(manager.activeJobs, pid)
