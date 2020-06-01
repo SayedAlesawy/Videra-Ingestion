@@ -38,7 +38,7 @@ func main() {
 	select {
 	case <-signals:
 		processesManager.Shutdown()
-		ingestionManager.Shutdown()
+		//ingestionManager.Shutdown()
 		monitor.Shutdown()
 	}
 }

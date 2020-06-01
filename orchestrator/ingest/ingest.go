@@ -8,6 +8,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/config"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/params"
 	"github.com/pebbe/zmq4"
@@ -50,6 +51,9 @@ func IngestionManagerInstance() *IngestionManager {
 			workersListMutex:       &sync.Mutex{},
 			activeJobsMutex:        &sync.Mutex{},
 			activeRoutines:         activeRoutines,
+			jobsList:               make(map[int64]ingestionJob),
+			workers:                make(map[int]process.Process),
+			activeJobs:             make(map[int]ingestionJob),
 		}
 
 		manager.populateJobsPool()
@@ -92,6 +96,7 @@ func (manager *IngestionManager) assignJobs() {
 	manager.establishConnection()
 
 	for range time.Tick(manager.workersScaningInterval) {
+		log.Println("checking")
 		select {
 		case <-manager.shutdown:
 			log.Println(logPrefix, "Ingestion Manager is shutting down")

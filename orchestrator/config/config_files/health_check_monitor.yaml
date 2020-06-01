@@ -1,4 +1,4 @@
-ip: '*'
+ip: '127.0.0.1'
 port: "9092"
 liveness_probe: 4
 readiness_probe: 12
