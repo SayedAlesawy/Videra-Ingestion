@@ -21,9 +21,11 @@ stream = logging.StreamHandler(sys.stdout)
 stream.setLevel(logging.INFO)
 logger.addHandler(stream)
 
+fh = logging.FileHandler(f'logs-{os.getpid()}.log')
+fh.setLevel(logging.INFO)
+logger.addHandler(fh)
 
 if __name__ == "__main__":
-
     args = parse_process_args()
 
     def exit_handler():
