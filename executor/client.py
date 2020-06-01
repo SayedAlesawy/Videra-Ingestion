@@ -13,7 +13,6 @@ for request in range(10):  # 10 is an arbitrary number
         "frameIndex": 60,
         "batchSize": 20
     }
-    json.dump(info, "json.json")
     print("Sending request %s …" % request)
     socket.send_json(json.dumps(info))
     message = socket.recv()

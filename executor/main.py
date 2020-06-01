@@ -37,8 +37,6 @@ if __name__ == "__main__":
     heartbeat.start()
 
     logger.info('[EXEC] waiting for heartbeat to terimnate')
-    heartbeat.join()
-    logger.info('[EXEC] heartbeat terminated, main process going down')
 
     receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
     while True:
@@ -48,3 +46,6 @@ if __name__ == "__main__":
         heartbeat.busyFlag = True
         process()  # empty function
         heartbeat.busyFlag = False
+
+    heartbeat.join()
+    logger.info('[EXEC] heartbeat terminated, main process going down')
