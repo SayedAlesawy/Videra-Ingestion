@@ -23,7 +23,7 @@ var ingestionManagerOnce sync.Once
 var ingestionManagerInstance *IngestionManager
 
 // ack Ack sent by worker pool
-const ack = "ack"
+const ack = "ACK"
 
 // IngestionManagerInstance A function to return an ingestion manager instance
 func IngestionManagerInstance() *IngestionManager {
@@ -133,7 +133,7 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 		return
 	}
 
-	log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool", job.jid))
+	log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool", job.Jid))
 
 	sendChan := make(chan bool, 1)
 	go func() {
@@ -142,9 +142,9 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 		success := !errors.IsError(sendErr) && !errors.IsError(recvErr) && (acknowledge == ack)
 
 		if success {
-			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pool", job.jid))
+			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pool", job.Jid))
 		} else {
-			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pool", job.jid))
+			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pool", job.Jid))
 		}
 
 		sendChan <- true
@@ -153,7 +153,7 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 	select {
 	case <-sendChan:
 	case <-time.After(manager.jobSendTimeout):
-		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool timed out", job.jid))
+		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool timed out", job.Jid))
 	}
 }
 
