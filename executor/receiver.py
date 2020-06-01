@@ -70,7 +70,6 @@ class Receiver:
             return False
 
     def generate_data(self):
-        self.get_batch_metadata()
         cap = self.validate_metadata()
         if(cap):
             for i in range(0, self.metadata['batchSize'], self.stride):

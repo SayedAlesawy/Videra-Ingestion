@@ -48,6 +48,7 @@ if __name__ == "__main__":
         heartbeat.curr_job_id = receiver.get_job_id()
 
         heartbeat.busy = True
+        receiver.generate_data()
         process()
         heartbeat.busy = False
 
