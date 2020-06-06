@@ -16,3 +16,6 @@
 # vendor/
 *.bin
 *.mp4
+
+# Ignore log files
+*.log
