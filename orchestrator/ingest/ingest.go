@@ -40,7 +40,6 @@ func IngestionManagerInstance() *IngestionManager {
 
 		manager := IngestionManager{
 			workerPoolIP:           configObj.WorkerPoolIP,
-			workerPoolPort:         configObj.WorkerPoolPort,
 			connectionHandler:      connection,
 			startIdx:               params.StartIdx,
 			frameCount:             params.FrameCount,
@@ -185,7 +184,15 @@ func (manager *IngestionManager) populateJobsPool() {
 
 // establishConnection A function to establish connection with the worker pool
 func (manager *IngestionManager) establishConnection() {
-	endpoint := tcp.BuildConnectionString(manager.workerPoolIP, manager.workerPoolPort)
+	manager.workersListMutex.Lock()
 
-	manager.connectionHandler.Connect(endpoint)
+	var endpoints []string
+
+	for _, worker := range manager.workers {
+		endpoints = append(endpoints, tcp.BuildConnectionString(manager.workerPoolIP, worker.JobsPort))
+	}
+
+	manager.connectionHandler.Connect(endpoints...)
+
+	manager.workersListMutex.Unlock()
 }

@@ -15,3 +15,5 @@ process_groups:
           value: 5050
       - - flag: port
           value: 5051
+      - - flag: port
+          value: 5052

@@ -18,6 +18,7 @@ type Process struct {
 	LastPing    time.Time   //The the timestamp of the last ping by the process
 	Utilization Utilization //Stores utilization stats
 	Pid         int         //Unique process ID
+	JobsPort    string      //Port on which the process recieves jobs
 }
 
 // Utilization Represents the process util stats received in healthchecks
@@ -32,10 +33,11 @@ type Utilization struct {
 
 // process Represents the staged process structure which is more privileged than the exposed type
 type process struct {
-	Handle  *exec.Cmd    //A handle on the command that executed the process
-	Group   processGroup //The process group to which the process belongs
-	Args    []string     //Arguments passed to process
-	Running bool         //Indicates if the process is currently running
+	Handle   *exec.Cmd    //A handle on the command that executed the process
+	Group    processGroup //The process group to which the process belongs
+	Args     []string     //Arguments passed to process
+	JobsPort string       //Port on which the process receives jobs
+	Running  bool         //Indicates if the process is currently running
 }
 
 // processGroup Represents a group of similar processes

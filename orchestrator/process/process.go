@@ -25,20 +25,22 @@ func (processObj *process) execute() (*exec.Cmd, error) {
 }
 
 // NewProcess A function to create a new exposed process instance
-func NewProcess(pid int) Process {
+func NewProcess(pid int, jobsPort string) Process {
 	return Process{
 		Pid:       pid,
+		JobsPort:  jobsPort,
 		Trackable: false,
 		FirstPing: time.Now(),
 	}
 }
 
 // newProcess A function to create a new internal process instance
-func newProcess(group processGroup, args []string) process {
+func newProcess(jobsPort string, group processGroup, args []string) process {
 	return process{
-		Group:   group,
-		Args:    args,
-		Running: false,
+		JobsPort: jobsPort,
+		Group:    group,
+		Args:     args,
+		Running:  false,
 	}
 }
 

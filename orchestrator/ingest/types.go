@@ -11,7 +11,6 @@ import (
 // IngestionManager Resposible for scheduling ingestion jobs
 type IngestionManager struct {
 	workerPoolIP           string                  //IP of the worker pool
-	workerPoolPort         string                  //Port of the worker pool on which to send jobs
 	connectionHandler      tcp.Connection          //Used to communicate with the worker pool
 	startIdx               int64                   //Global index to start indexing from
 	frameCount             int64                   //Global frame count to ingest starting from startIdx
