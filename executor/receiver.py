@@ -14,21 +14,22 @@ def show_frames(frames):  # utility function for debugging
 
 
 class Receiver:
-    def __init__(self, videoPath, modelPath, modelConfigPath):  # should add any additional configs here
+    def __init__(self, videoPath, modelPath, modelConfigPath, port):  # should add any additional configs here
         self.modelPath = modelPath
         self.videoPath = videoPath
         self.modelConfigPath = modelConfigPath
+        self.port = int(port)
         self.metadata = {}
         self.modelConfigs = {}
         # self.load_modelConfigs()
         self.initializeConnection()
 
-    def initializeConnection(self, port=5555, host='*'):
+    def initializeConnection(self, host='*'):
         context = zmq.Context()
 
         socket = context.socket(zmq.REP)
-        socket.bind(f"tcp://{host}:{port}")
-        logger.info(f'Established connection with master on tcp://{host}:{port}')
+        socket.bind(f"tcp://{host}:{self.port}")
+        logger.info(f'Established connection with master on tcp://{host}:{self.port}')
         self.socket = socket
 
     def model_path(self):

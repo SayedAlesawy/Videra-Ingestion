@@ -41,7 +41,10 @@ if __name__ == "__main__":
 
     logger.info('[EXEC] waiting for heartbeat to terimnate')
 
-    receiver = Receiver(videoPath=args.video_path, modelPath=args.model_path, modelConfigPath=args.model_config_path)
+    receiver = Receiver(videoPath=args.video_path,
+                        modelPath=args.model_path,
+                        modelConfigPath=args.model_config_path,
+                        port=args.port)
     while True:
         receiver.get_batch_metadata()
         receiver.reply()
