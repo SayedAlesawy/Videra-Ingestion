@@ -95,8 +95,6 @@ func (manager *IngestionManager) assignJobs() {
 
 	log.Println(logPrefix, "Jobs Assigner Started")
 
-	manager.establishConnection()
-
 	for range time.Tick(manager.workersScaningInterval) {
 		select {
 		case <-manager.shutdown:
@@ -114,7 +112,7 @@ func (manager *IngestionManager) assignJobs() {
 			manager.inFlightJobsMutex.Lock()
 
 			//Assign jobs to non-busy workers
-			for _, worker := range manager.workers {
+			for workerID, worker := range manager.workers {
 				if worker.Utilization.Busy {
 					continue
 				}
@@ -128,7 +126,7 @@ func (manager *IngestionManager) assignJobs() {
 
 					//Mark job as in-flight
 					manager.jobsInFlight[job.Jid] = true
-					go manager.sendJob(job)
+					go manager.sendJob(workerID, job)
 					break
 				}
 			}
@@ -141,14 +139,14 @@ func (manager *IngestionManager) assignJobs() {
 	}
 }
 
-func (manager *IngestionManager) sendJob(job ingestionJob) {
+func (manager *IngestionManager) sendJob(workerID int, job ingestionJob) {
 	encodedJob, err := job.encode()
 	errors.HandleError(err, fmt.Sprintf("%s Unable to encode job, err: %s", logPrefix, err), false)
 	if errors.IsError(err) {
 		return
 	}
 
-	log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool", job.Jid))
+	log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d", job.Jid, workerID))
 
 	sendChan := make(chan bool, 1)
 	go func() {
@@ -157,13 +155,13 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 		success := !errors.IsError(sendErr) && !errors.IsError(recvErr) && (acknowledge == ack)
 
 		if success {
-			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pool", job.Jid))
+			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pid: %d", job.Jid, workerID))
 		} else {
 			manager.inFlightJobsMutex.Lock()
 			manager.jobsInFlight[job.Jid] = false
 			manager.inFlightJobsMutex.Unlock()
 
-			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pool", job.Jid))
+			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pid: %d", job.Jid, workerID))
 		}
 
 		sendChan <- true
@@ -176,7 +174,7 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 		manager.jobsInFlight[job.Jid] = false
 		manager.inFlightJobsMutex.Unlock()
 
-		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool timed out", job.Jid))
+		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d timed out", job.Jid, workerID))
 	}
 }
 
@@ -199,19 +197,4 @@ func (manager *IngestionManager) populateJobsPool() {
 
 		manager.jobsList[jid] = newIngestionJob(jid, start, jobSize)
 	}
-}
-
-// establishConnection A function to establish connection with the worker pool
-func (manager *IngestionManager) establishConnection() {
-	manager.workersListMutex.Lock()
-
-	var endpoints []string
-
-	for _, worker := range manager.workers {
-		endpoints = append(endpoints, tcp.BuildConnectionString(manager.workerPoolIP, worker.JobsPort))
-	}
-
-	manager.connectionHandler.Connect(endpoints...)
-
-	manager.workersListMutex.Unlock()
 }
