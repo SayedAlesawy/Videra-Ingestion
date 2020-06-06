@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/health"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/pubsub"
@@ -38,7 +37,6 @@ func (manager *IngestionManager) workerOnlineHandler(pid int, worker process.Pro
 
 	//Add newly joined worker
 	manager.workers[pid] = worker
-	manager.connectionHandler.Connect(tcp.BuildConnectionString(manager.workerPoolIP, worker.JobsPort))
 
 	manager.workersListMutex.Unlock()
 }
@@ -69,7 +67,6 @@ func (manager *IngestionManager) workerCrashedHandler(pid int) {
 	}
 
 	//Remove the worker from the list of online workers and clean up tcp connection
-	manager.connectionHandler.Disconnect(tcp.BuildConnectionString(manager.workerPoolIP, manager.workers[pid].JobsPort))
 	delete(manager.workers, pid)
 
 	manager.jobsListMutex.Unlock()
@@ -126,10 +123,10 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid int64) {
 	log.Println(logPrefix, fmt.Sprintf("Worker with pid: %d completed executing job with jid: %d", pid, jid))
 
 	//Remove it from active jobs
+	manager.unmarkAsInFlight(jid)
 	delete(manager.activeJobs, pid)
 
 	//Mark the worker as not busy
-	//Mark worker as busy
 	worker := manager.workers[pid]
 	worker.Utilization.Busy = false
 	manager.workers[pid] = worker

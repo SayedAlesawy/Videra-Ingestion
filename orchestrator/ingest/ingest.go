@@ -33,14 +33,10 @@ func IngestionManagerInstance() *IngestionManager {
 		configObj := configManager.IngestionManagerConfig("ingestion_manager.yaml")
 		params := params.OrchestratorParamsInstance()
 
-		connection, err := tcp.NewConnection(zmq4.REQ, "")
-		errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
-
 		activeRoutines := 1
 
 		manager := IngestionManager{
 			workerPoolIP:           configObj.WorkerPoolIP,
-			connectionHandler:      connection,
 			startIdx:               params.StartIdx,
 			frameCount:             params.FrameCount,
 			jobSize:                configObj.JobSize,
@@ -124,8 +120,8 @@ func (manager *IngestionManager) assignJobs() {
 					}
 
 					//Mark job as in-flight
-					manager.markAsInFlight(job)
-					go manager.sendJob(workerID, job)
+					manager.markAsInFlight(job.Jid)
+					go manager.sendJob(workerID, worker.JobsPort, job)
 					break
 				}
 			}
@@ -137,7 +133,7 @@ func (manager *IngestionManager) assignJobs() {
 	}
 }
 
-func (manager *IngestionManager) sendJob(workerID int, job ingestionJob) {
+func (manager *IngestionManager) sendJob(workerID int, workerPort string, job ingestionJob) {
 	encodedJob, err := job.encode()
 	errors.HandleError(err, fmt.Sprintf("%s Unable to encode job, err: %s", logPrefix, err), false)
 	if errors.IsError(err) {
@@ -146,15 +142,22 @@ func (manager *IngestionManager) sendJob(workerID int, job ingestionJob) {
 
 	log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d", job.Jid, workerID))
 
+	connection, err := tcp.NewConnection(zmq4.REQ, "")
+	errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
+
+	connection.Connect(tcp.BuildConnectionString(manager.workerPoolIP, workerPort))
+
 	sendChan := make(chan bool, 1)
 	go func() {
-		sendErr := manager.connectionHandler.Send(encodedJob, 0)
-		acknowledge, recvErr := manager.connectionHandler.RecvString(0)
+		sendErr := connection.Send(encodedJob, 0)
+		acknowledge, recvErr := connection.RecvString(0)
 		success := !errors.IsError(sendErr) && !errors.IsError(recvErr) && (acknowledge == ack)
 
 		if success {
 			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pid: %d", job.Jid, workerID))
 		} else {
+			manager.unmarkAsInFlight(job.Jid)
+
 			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pid: %d", job.Jid, workerID))
 		}
 
@@ -164,10 +167,10 @@ func (manager *IngestionManager) sendJob(workerID int, job ingestionJob) {
 	select {
 	case <-sendChan:
 	case <-time.After(manager.jobSendTimeout):
+		manager.unmarkAsInFlight(job.Jid)
+
 		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d timed out", job.Jid, workerID))
 	}
-
-	manager.unmarkAsInFlight(job)
 }
 
 // populateJobsPool Populates the jobs pool of the ingestion manager
@@ -192,19 +195,19 @@ func (manager *IngestionManager) populateJobsPool() {
 }
 
 // markAsInFlight A function to mark a job as being in-flight
-func (manager *IngestionManager) markAsInFlight(job ingestionJob) {
+func (manager *IngestionManager) markAsInFlight(jid int64) {
 	manager.inFlightJobsMutex.Lock()
 
-	manager.jobsInFlight[job.Jid] = true
+	manager.jobsInFlight[jid] = true
 
 	manager.inFlightJobsMutex.Unlock()
 }
 
 // unmarkAsInFlight A function to unmark a job from being in-flight
-func (manager *IngestionManager) unmarkAsInFlight(job ingestionJob) {
+func (manager *IngestionManager) unmarkAsInFlight(jid int64) {
 	manager.inFlightJobsMutex.Lock()
 
-	delete(manager.jobsInFlight, job.Jid)
+	delete(manager.jobsInFlight, jid)
 
 	manager.inFlightJobsMutex.Unlock()
 }

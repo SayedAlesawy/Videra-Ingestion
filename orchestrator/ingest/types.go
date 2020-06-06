@@ -4,14 +4,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 )
 
 // IngestionManager Resposible for scheduling ingestion jobs
 type IngestionManager struct {
 	workerPoolIP           string                  //IP of the worker pool
-	connectionHandler      tcp.Connection          //Used to communicate with the worker pool
 	startIdx               int64                   //Global index to start indexing from
 	frameCount             int64                   //Global frame count to ingest starting from startIdx
 	jobSize                int64                   //Frame count per job
