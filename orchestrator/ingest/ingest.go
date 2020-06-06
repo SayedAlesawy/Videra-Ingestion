@@ -109,7 +109,6 @@ func (manager *IngestionManager) assignJobs() {
 			manager.jobsListMutex.Lock()
 			manager.workersListMutex.Lock()
 			manager.activeJobsMutex.Lock()
-			manager.inFlightJobsMutex.Lock()
 
 			//Assign jobs to non-busy workers
 			for workerID, worker := range manager.workers {
@@ -125,7 +124,7 @@ func (manager *IngestionManager) assignJobs() {
 					}
 
 					//Mark job as in-flight
-					manager.jobsInFlight[job.Jid] = true
+					manager.markAsInFlight(job)
 					go manager.sendJob(workerID, job)
 					break
 				}
@@ -134,7 +133,6 @@ func (manager *IngestionManager) assignJobs() {
 			manager.jobsListMutex.Unlock()
 			manager.workersListMutex.Unlock()
 			manager.activeJobsMutex.Unlock()
-			manager.inFlightJobsMutex.Unlock()
 		}
 	}
 }
@@ -157,10 +155,6 @@ func (manager *IngestionManager) sendJob(workerID int, job ingestionJob) {
 		if success {
 			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pid: %d", job.Jid, workerID))
 		} else {
-			manager.inFlightJobsMutex.Lock()
-			manager.jobsInFlight[job.Jid] = false
-			manager.inFlightJobsMutex.Unlock()
-
 			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pid: %d", job.Jid, workerID))
 		}
 
@@ -170,12 +164,10 @@ func (manager *IngestionManager) sendJob(workerID int, job ingestionJob) {
 	select {
 	case <-sendChan:
 	case <-time.After(manager.jobSendTimeout):
-		manager.inFlightJobsMutex.Lock()
-		manager.jobsInFlight[job.Jid] = false
-		manager.inFlightJobsMutex.Unlock()
-
 		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d timed out", job.Jid, workerID))
 	}
+
+	manager.unmarkAsInFlight(job)
 }
 
 // populateJobsPool Populates the jobs pool of the ingestion manager
@@ -197,4 +189,22 @@ func (manager *IngestionManager) populateJobsPool() {
 
 		manager.jobsList[jid] = newIngestionJob(jid, start, jobSize)
 	}
+}
+
+// markAsInFlight A function to mark a job as being in-flight
+func (manager *IngestionManager) markAsInFlight(job ingestionJob) {
+	manager.inFlightJobsMutex.Lock()
+
+	manager.jobsInFlight[job.Jid] = true
+
+	manager.inFlightJobsMutex.Unlock()
+}
+
+// unmarkAsInFlight A function to unmark a job from being in-flight
+func (manager *IngestionManager) unmarkAsInFlight(job ingestionJob) {
+	manager.inFlightJobsMutex.Lock()
+
+	delete(manager.jobsInFlight, job.Jid)
+
+	manager.inFlightJobsMutex.Unlock()
 }
