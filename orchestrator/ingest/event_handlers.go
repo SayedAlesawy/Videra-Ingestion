@@ -114,7 +114,7 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid int64) {
 
 	//Validate that worker and job exist
 	_, workerExists := manager.workers[pid]
-	_, jobExists := manager.jobsList[jid]
+	_, jobExists := manager.activeJobs[pid]
 	if !workerExists || !jobExists {
 		log.Println(logPrefix, fmt.Sprintf("Unknown worker pid: %d or job jid: %d", pid, jid))
 		return

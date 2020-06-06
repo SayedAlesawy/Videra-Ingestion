@@ -85,7 +85,7 @@ func (manager *IngestionManager) Shutdown() {
 	log.Println(logPrefix, "Waiting for ingestion routines to terminate")
 	manager.wg.Wait()
 
-	log.Println(logPrefix, "Health check monitor shutdown successfully")
+	log.Println(logPrefix, "Ingestion Manager shutdown successfully")
 }
 
 func (manager *IngestionManager) assignJobs() {
