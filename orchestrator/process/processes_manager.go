@@ -110,7 +110,7 @@ func (manager *ProcessesManager) executeStagedProcesses() ([]Process, int, int) 
 		}
 
 		//Create an exposed process instance used for tracking
-		executedProcess := NewProcess(cmd.Process.Pid)
+		executedProcess := NewProcess(cmd.Process.Pid, manager.stagedProcessesList[i].JobsPort)
 		log.Println(logPrefix, "Start process under group:", manager.stagedProcessesList[i].Group.Name, "with PID:", executedProcess.Pid)
 
 		//Add the exposed process to the execution list
