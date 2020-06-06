@@ -10,7 +10,11 @@ import (
 
 // execute A function to execute a staged process
 func (processObj *process) execute() (*exec.Cmd, error) {
-	cmd := exec.Command(processObj.Group.Command, processObj.Group.Args...)
+
+	args := []string{}
+	args = append(args, processObj.Group.Args...)
+	args = append(args, processObj.Args...)
+	cmd := exec.Command(processObj.Group.Command, args...)
 
 	err := cmd.Start()
 	if errors.IsError(err) {
@@ -30,9 +34,10 @@ func NewProcess(pid int) Process {
 }
 
 // newProcess A function to create a new internal process instance
-func newProcess(group processGroup) process {
+func newProcess(group processGroup, args []string) process {
 	return process{
 		Group:   group,
+		Args:    args,
 		Running: false,
 	}
 }

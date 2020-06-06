@@ -32,6 +32,7 @@ type Utilization struct {
 type process struct {
 	Handle  *exec.Cmd    //A handle on the command that executed the process
 	Group   processGroup //The process group to which the process belongs
+	Args    []string     //Arguments passed to process
 	Running bool         //Indicates if the process is currently running
 }
 
