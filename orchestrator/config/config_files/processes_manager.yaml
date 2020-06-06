@@ -6,6 +6,12 @@ process_groups:
     arg_prefix: "-"
     arg_assign: "="
     args:
+      group:
       - flag: video-path
       - flag: model-path
       - flag: model-config-path
+      process:
+      - - flag: port
+          value: 5050
+      - - flag: port
+          value: 5051

@@ -25,29 +25,39 @@ func buildStagedProcessesList(managerConfig config.ProcessesManagerConfig) []pro
 	var stagedProcessesList []process
 
 	for _, group := range managerConfig.ProcessGroups {
-		groupArgs := getProcessGroupArgs(group.Script, group.ArgPrefix, group.ArgAssign, group.Args)
+		groupArgs := []string{group.Script}
+		groupArgs = append(groupArgs, getProcessArgs(group.ArgPrefix, group.ArgAssign, group.Args.Group, true)...)
 		groupInstance := newProcessGroup(group.Name, group.Replicas, group.Command, groupArgs)
 
 		for i := 0; i < group.Replicas; i++ {
-			stagedProcessesList = append(stagedProcessesList, newProcess(groupInstance))
+			processArgs := []string{}
+			if i < len(group.Args.Process) {
+				processArgs = getProcessArgs(group.ArgPrefix, group.ArgAssign, group.Args.Process[i], false)
+			}
+
+			stagedProcessesList = append(stagedProcessesList, newProcess(groupInstance, processArgs))
 		}
 	}
 
 	return stagedProcessesList
 }
 
-// getProcessGroupArgs A function to construct process arguments from config
-func getProcessGroupArgs(script string, argsPrefix string, argsAssign string, args []config.ProcessArg) []string {
-	groupArgs := []string{script}
+// getProcessArgs A function to construct process arguments from config
+func getProcessArgs(argsPrefix string, argsAssign string, args []config.ProcessArg, fallback bool) []string {
+	processArgs := []string{}
 
 	for _, arg := range args {
 		value := arg.Value
-		if value == "" {
+		if value == "" && fallback {
 			value = params.OrchestratorParamsInstance().ArgsMap[arg.Flag].(string)
 		}
 
-		groupArgs = append(groupArgs, fmt.Sprintf("%s%s%s%s", argsPrefix, arg.Flag, argsAssign, value))
+		if value == "" {
+			continue
+		}
+
+		processArgs = append(processArgs, fmt.Sprintf("%s%s%s%s", argsPrefix, arg.Flag, argsAssign, value))
 	}
 
-	return groupArgs
+	return processArgs
 }
