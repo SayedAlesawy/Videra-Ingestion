@@ -47,11 +47,13 @@ func IngestionManagerInstance() *IngestionManager {
 			workersScaningInterval: time.Duration(configObj.WorkersScanningInterval) * time.Second,
 			jobSendTimeout:         time.Duration(configObj.JobSendTimeout) * time.Second,
 			jobsListMutex:          &sync.Mutex{},
+			inFlightJobsMutex:      &sync.Mutex{},
 			workersListMutex:       &sync.Mutex{},
 			activeJobsMutex:        &sync.Mutex{},
 			activeRoutines:         activeRoutines,
 			shutdown:               make(chan bool, activeRoutines),
 			jobsList:               make(map[int64]ingestionJob),
+			jobsInFlight:           make(map[int64]bool),
 			workers:                make(map[int]process.Process),
 			activeJobs:             make(map[int]ingestionJob),
 		}
@@ -109,6 +111,7 @@ func (manager *IngestionManager) assignJobs() {
 			manager.jobsListMutex.Lock()
 			manager.workersListMutex.Lock()
 			manager.activeJobsMutex.Lock()
+			manager.inFlightJobsMutex.Lock()
 
 			//Assign jobs to non-busy workers
 			for _, worker := range manager.workers {
@@ -118,6 +121,13 @@ func (manager *IngestionManager) assignJobs() {
 
 				//Check todo jobs
 				for _, job := range manager.jobsList {
+					//If job is already in flight, skip it
+					if manager.jobsInFlight[job.Jid] {
+						continue
+					}
+
+					//Mark job as in-flight
+					manager.jobsInFlight[job.Jid] = true
 					go manager.sendJob(job)
 					break
 				}
@@ -126,6 +136,7 @@ func (manager *IngestionManager) assignJobs() {
 			manager.jobsListMutex.Unlock()
 			manager.workersListMutex.Unlock()
 			manager.activeJobsMutex.Unlock()
+			manager.inFlightJobsMutex.Unlock()
 		}
 	}
 }
@@ -148,6 +159,10 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 		if success {
 			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pool", job.Jid))
 		} else {
+			manager.inFlightJobsMutex.Lock()
+			manager.jobsInFlight[job.Jid] = false
+			manager.inFlightJobsMutex.Unlock()
+
 			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pool", job.Jid))
 		}
 
@@ -157,6 +172,10 @@ func (manager *IngestionManager) sendJob(job ingestionJob) {
 	select {
 	case <-sendChan:
 	case <-time.After(manager.jobSendTimeout):
+		manager.inFlightJobsMutex.Lock()
+		manager.jobsInFlight[job.Jid] = false
+		manager.inFlightJobsMutex.Unlock()
+
 		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pool timed out", job.Jid))
 	}
 }

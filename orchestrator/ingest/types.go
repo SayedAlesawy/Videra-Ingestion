@@ -18,9 +18,11 @@ type IngestionManager struct {
 	workersScaningInterval time.Duration           //The frequency at which the manager checks for non-busy workers
 	jobSendTimeout         time.Duration           //Timeout for sending job to worker pool
 	jobsList               map[int64]ingestionJob  //Jobs pool of available jobs
+	jobsInFlight           map[int64]bool          //Marks if a job is in-flight or not
 	workers                map[int]process.Process //Workers to which the manager assigns jobs
 	activeJobs             map[int]ingestionJob    //Dictionary to keep which worker is executing which job
 	jobsListMutex          *sync.Mutex             //Used to insure thread safety while accessing the jobs list
+	inFlightJobsMutex      *sync.Mutex             //Used to insure thread safety while accessing the in-flight jobs list
 	workersListMutex       *sync.Mutex             //Used to insure thread safety while accessing the workers list
 	activeJobsMutex        *sync.Mutex             //Used to insure thread safety while accessing the active jobs list
 	wg                     sync.WaitGroup          //Used to wait on fired goroutines
