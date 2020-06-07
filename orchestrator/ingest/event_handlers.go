@@ -60,6 +60,7 @@ func (manager *IngestionManager) workerCrashedHandler(pid int) {
 	job, exists := manager.activeJobs[pid]
 	if exists {
 		//Move the crashed worker job to todo to be retry-ied
+		manager.unmarkAsInFlight(job.Jid)
 		manager.jobsList[job.Jid] = job
 
 		//Remove it from active jobs
@@ -94,6 +95,7 @@ func (manager *IngestionManager) jobStartedHandler(pid int, jid int64) {
 	manager.activeJobs[pid] = manager.jobsList[jid]
 
 	//Remove it from todo jobs
+	manager.unmarkAsInFlight(jid)
 	delete(manager.jobsList, jid)
 
 	//Mark worker as busy
@@ -123,7 +125,6 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid int64) {
 	log.Println(logPrefix, fmt.Sprintf("Worker with pid: %d completed executing job with jid: %d", pid, jid))
 
 	//Remove it from active jobs
-	manager.unmarkAsInFlight(jid)
 	delete(manager.activeJobs, pid)
 
 	//Mark the worker as not busy
