@@ -18,7 +18,7 @@ class Receiver:
         self.modelPath = modelPath
         self.videoPath = videoPath
         self.modelConfigPath = modelConfigPath
-        self.port = int(port)
+        self.port = port
         self.metadata = {}
         self.modelConfigs = {}
         # self.load_modelConfigs()
