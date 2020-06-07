@@ -44,8 +44,8 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			subscribersListMutex:     &sync.Mutex{},
 			livenessProbe:            time.Duration(configObj.LivenessProbe) * time.Second,
 			readinessProbe:           time.Duration(configObj.ReadinessProbe) * time.Second,
-			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
-			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Second,
+			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Millisecond,
+			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Millisecond,
 			activeRoutines:           activeRoutines,
 			wg:                       sync.WaitGroup{},
 			shutdown:                 make(chan bool, activeRoutines),
@@ -191,7 +191,7 @@ func (monitorObj *Monitor) initiateRespawn() {
 
 			return
 		default:
-			log.Println(logPrefix, "Initiating re-spawning")
+			log.Println(logPrefix, "Checking replica set")
 
 			processes := process.ProcessesManagerInstance().RespawnStagedProcesses()
 			if len(processes) == 0 {
