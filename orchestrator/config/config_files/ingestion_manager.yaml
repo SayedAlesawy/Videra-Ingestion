@@ -1,4 +1,5 @@
-worker_pool_ip: "127.0.0.1"
-worker_scanning_interval: 5
 job_size: 10
-job_send_timeout: 4
+queues:
+  todo: ingestion:todo
+  in_progress: ingestion:in-progress
+  done: ingestion:done
