@@ -2,30 +2,28 @@ package ingest
 
 import (
 	"sync"
-	"time"
 
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 )
 
 // IngestionManager Resposible for scheduling ingestion jobs
 type IngestionManager struct {
-	workerPoolIP           string                  //IP of the worker pool
-	startIdx               int64                   //Global index to start indexing from
-	frameCount             int64                   //Global frame count to ingest starting from startIdx
-	jobSize                int64                   //Frame count per job
-	workersScaningInterval time.Duration           //The frequency at which the manager checks for non-busy workers
-	jobSendTimeout         time.Duration           //Timeout for sending job to worker pool
-	jobsList               map[int64]ingestionJob  //Jobs pool of available jobs
-	jobsInFlight           map[int64]bool          //Marks if a job is in-flight or not
-	workers                map[int]process.Process //Workers to which the manager assigns jobs
-	activeJobs             map[int]ingestionJob    //Dictionary to keep which worker is executing which job
-	jobsListMutex          *sync.Mutex             //Used to insure thread safety while accessing the jobs list
-	inFlightJobsMutex      *sync.Mutex             //Used to insure thread safety while accessing the in-flight jobs list
-	workersListMutex       *sync.Mutex             //Used to insure thread safety while accessing the workers list
-	activeJobsMutex        *sync.Mutex             //Used to insure thread safety while accessing the active jobs list
-	wg                     sync.WaitGroup          //Used to wait on fired goroutines
-	shutdown               chan bool               //Used to handle shutdown signals
-	activeRoutines         int                     //Number of active concurrent routines
+	startIdx         int64                   //Global index to start indexing from
+	frameCount       int64                   //Global frame count to ingest starting from startIdx
+	jobSize          int64                   //Frame count per job
+	workers          map[int]process.Process //Workers to which the manager assigns jobs
+	workersListMutex *sync.Mutex             //Used to insure thread safety while accessing the workers list
+	Queues           Queue                   //Houses the queues used by the ingestion manager
+	Cache            *redis.Client           //Used by the manager to access a persistent caching layer
+	CachePrefix      string                  //Prefix for cache keys used for scoping
+}
+
+// Queue Defines a queue used in the ingestion manager
+type Queue struct {
+	Todo       string //Queue for to be done jobs
+	InProgress string //Queue for currently executing jobs
+	Done       string //Queue for already executed jobs
 }
 
 // ingestionJob Represents the ingestion job params

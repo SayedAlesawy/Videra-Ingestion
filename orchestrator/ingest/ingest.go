@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/config"
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/params"
-	"github.com/pebbe/zmq4"
 )
 
 // logPrefix Used for hierarchical logging
@@ -23,9 +21,6 @@ var ingestionManagerOnce sync.Once
 // ingestionManagerInstance A singleton instance of the ingestion manager object
 var ingestionManagerInstance *IngestionManager
 
-// ack Ack sent by worker pool
-const ack = "ACK"
-
 // IngestionManagerInstance A function to return an ingestion manager instance
 func IngestionManagerInstance() *IngestionManager {
 	ingestionManagerOnce.Do(func() {
@@ -33,29 +28,22 @@ func IngestionManagerInstance() *IngestionManager {
 		configObj := configManager.IngestionManagerConfig("ingestion_manager.yaml")
 		params := params.OrchestratorParamsInstance()
 
-		activeRoutines := 1
+		cacheInstance, err := redis.Instance(configManager.RedisConfig())
+		errors.HandleError(err, fmt.Sprintf("%s Unable to connect to caching layer", logPrefix), true)
 
 		manager := IngestionManager{
-			workerPoolIP:           configObj.WorkerPoolIP,
-			startIdx:               params.StartIdx,
-			frameCount:             params.FrameCount,
-			jobSize:                configObj.JobSize,
-			workersScaningInterval: time.Duration(configObj.WorkersScanningInterval) * time.Second,
-			jobSendTimeout:         time.Duration(configObj.JobSendTimeout) * time.Second,
-			jobsListMutex:          &sync.Mutex{},
-			inFlightJobsMutex:      &sync.Mutex{},
-			workersListMutex:       &sync.Mutex{},
-			activeJobsMutex:        &sync.Mutex{},
-			activeRoutines:         activeRoutines,
-			shutdown:               make(chan bool, activeRoutines),
-			jobsList:               make(map[int64]ingestionJob),
-			jobsInFlight:           make(map[int64]bool),
-			workers:                make(map[int]process.Process),
-			activeJobs:             make(map[int]ingestionJob),
+			startIdx:         params.StartIdx,
+			frameCount:       params.FrameCount,
+			jobSize:          configObj.JobSize,
+			workers:          make(map[int]process.Process),
+			workersListMutex: &sync.Mutex{},
+			Cache:            cacheInstance,
+			CachePrefix:      params.ExecutionGroupID,
 		}
 
+		manager.getQueueNames(configObj.Queues)
 		manager.populateJobsPool()
-
+		log.Println(manager.CachePrefix)
 		ingestionManagerInstance = &manager
 	})
 
@@ -65,116 +53,29 @@ func IngestionManagerInstance() *IngestionManager {
 // Start Starts the ingestion manager job scheduling routine
 func (manager *IngestionManager) Start() {
 	log.Println(logPrefix, "Starting Ingestion Manager")
-
-	manager.wg.Add(manager.activeRoutines)
-
-	//Start jobs assigner
-	go manager.assignJobs()
 }
 
 // Shutdown A function to shutdown the ingestion manager
 func (manager *IngestionManager) Shutdown() {
-	log.Println(logPrefix, "Shutting down ingestion manager")
+	log.Println(logPrefix, "Ingestion Manager cleaning cache")
 
-	for i := 0; i < manager.activeRoutines; i++ {
-		manager.shutdown <- true
-	}
-
-	log.Println(logPrefix, "Waiting for ingestion routines to terminate")
-	manager.wg.Wait()
+	manager.flushCache()
 
 	log.Println(logPrefix, "Ingestion Manager shutdown successfully")
 }
 
-func (manager *IngestionManager) assignJobs() {
-	defer manager.wg.Done()
-
-	log.Println(logPrefix, "Jobs Assigner Started")
-
-	for range time.Tick(manager.workersScaningInterval) {
-		select {
-		case <-manager.shutdown:
-			log.Println(logPrefix, "Ingestion Manager is shutting down")
-
-			return
-		default:
-			if len(manager.jobsList) == 0 {
-				continue
-			}
-
-			manager.jobsListMutex.Lock()
-			manager.workersListMutex.Lock()
-			manager.activeJobsMutex.Lock()
-
-			//Assign jobs to non-busy workers
-			for workerID, worker := range manager.workers {
-				if worker.Utilization.Busy {
-					continue
-				}
-
-				//Check todo jobs
-				for _, job := range manager.jobsList {
-					//If job is already in flight, skip it
-					if manager.jobsInFlight[job.Jid] {
-						continue
-					}
-
-					//Mark job as in-flight
-					manager.markAsInFlight(job.Jid)
-					go manager.sendJob(workerID, worker.JobsPort, job)
-					break
-				}
-			}
-
-			manager.jobsListMutex.Unlock()
-			manager.workersListMutex.Unlock()
-			manager.activeJobsMutex.Unlock()
-		}
-	}
-}
-
-func (manager *IngestionManager) sendJob(workerID int, workerPort string, job ingestionJob) {
-	encodedJob, err := job.encode()
-	errors.HandleError(err, fmt.Sprintf("%s Unable to encode job, err: %s", logPrefix, err), false)
-	if errors.IsError(err) {
-		return
-	}
-
-	log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d", job.Jid, workerID))
-
-	connection, err := tcp.NewConnection(zmq4.REQ, "")
-	errors.HandleError(err, fmt.Sprintf("%s %s\n", logPrefix, "Unable to establish tcp connection"), true)
-
-	connection.Connect(tcp.BuildConnectionString(manager.workerPoolIP, workerPort))
-
-	sendChan := make(chan bool, 1)
-	go func() {
-		sendErr := connection.Send(encodedJob, 0)
-		acknowledge, recvErr := connection.RecvString(0)
-		success := !errors.IsError(sendErr) && !errors.IsError(recvErr) && (acknowledge == ack)
-
-		if success {
-			log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d received by worker pid: %d", job.Jid, workerID))
-		} else {
-			manager.unmarkAsInFlight(job.Jid)
-
-			log.Println(logPrefix, fmt.Sprintf("Unable to send job jid: %d to worker pid: %d", job.Jid, workerID))
-		}
-
-		sendChan <- true
-	}()
-
-	select {
-	case <-sendChan:
-	case <-time.After(manager.jobSendTimeout):
-		manager.unmarkAsInFlight(job.Jid)
-
-		log.Println(logPrefix, fmt.Sprintf("Sending job jid: %d to worker pid: %d timed out", job.Jid, workerID))
+func (manager *IngestionManager) getQueueNames(queues config.Queue) {
+	manager.Queues = Queue{
+		Todo:       fmt.Sprintf("%s:%s", manager.CachePrefix, queues.Todo),
+		InProgress: fmt.Sprintf("%s:%s", manager.CachePrefix, queues.InProgress),
+		Done:       fmt.Sprintf("%s:%s", manager.CachePrefix, queues.Done),
 	}
 }
 
 // populateJobsPool Populates the jobs pool of the ingestion manager
 func (manager *IngestionManager) populateJobsPool() {
+	var jobs []interface{}
+
 	jobsCount := manager.frameCount / manager.jobSize
 	remainder := manager.frameCount % manager.jobSize
 
@@ -190,24 +91,12 @@ func (manager *IngestionManager) populateJobsPool() {
 			jobSize = remainder
 		}
 
-		manager.jobsList[jid] = newIngestionJob(jid, start, jobSize)
+		job := newIngestionJob(jid, start, jobSize)
+		encodedJob, err := job.encode()
+		errors.HandleError(err, fmt.Sprintf("%s Unable to encode job: %+v", logPrefix, job), true)
+
+		jobs = append(jobs, encodedJob)
 	}
-}
 
-// markAsInFlight A function to mark a job as being in-flight
-func (manager *IngestionManager) markAsInFlight(jid int64) {
-	manager.inFlightJobsMutex.Lock()
-
-	manager.jobsInFlight[jid] = true
-
-	manager.inFlightJobsMutex.Unlock()
-}
-
-// unmarkAsInFlight A function to unmark a job from being in-flight
-func (manager *IngestionManager) unmarkAsInFlight(jid int64) {
-	manager.inFlightJobsMutex.Lock()
-
-	delete(manager.jobsInFlight, jid)
-
-	manager.inFlightJobsMutex.Unlock()
+	manager.insertTodoJobs(jobs)
 }

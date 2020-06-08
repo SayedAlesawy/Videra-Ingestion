@@ -6,6 +6,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/health"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/pubsub"
 )
 
@@ -43,96 +44,141 @@ func (manager *IngestionManager) workerOnlineHandler(pid int, worker process.Pro
 
 // workerCrashedHandler Handler for worker crashing events
 func (manager *IngestionManager) workerCrashedHandler(pid int) {
-	manager.jobsListMutex.Lock()
-	manager.workersListMutex.Lock()
-	manager.activeJobsMutex.Lock()
-
-	//Validate that worker exist
-	_, workerExists := manager.workers[pid]
-	if !workerExists {
-		log.Println(logPrefix, fmt.Sprintf("Unknown worker pid: %d", pid))
+	//Validate that worker and job exist
+	if !manager.workerExists(pid) {
 		return
 	}
 
 	log.Println(logPrefix, fmt.Sprintf("Worker with pid: %d crashed", pid))
 
-	//Check if the crashed worker was executing any jobs
-	job, exists := manager.activeJobs[pid]
-	if exists {
-		//Move the crashed worker job to todo to be retry-ied
-		manager.unmarkAsInFlight(job.Jid)
-		manager.jobsList[job.Jid] = job
+	//Check if the worker has active jobs
+	activeJob, hasJob := manager.hasActiveJob(pid)
+	if hasJob {
+		//Move jobs from in-progress to todo
+		err := manager.moveInQueues(activeJob, manager.Queues.InProgress, manager.Queues.Todo)
+		errors.HandleError(err, fmt.Sprintf("%s Error while moving active job from %s to %s by worker pid: %d",
+			logPrefix, manager.Queues.InProgress, manager.Queues.Todo, pid), false)
 
-		//Remove it from active jobs
-		delete(manager.activeJobs, pid)
+		//Remove the worker's active job
+		err = manager.removeActiveJob(pid)
+		errors.HandleError(err, fmt.Sprintf("%s Error while removing active job for worker pid: %d ", logPrefix, pid), false)
 	}
 
 	//Remove the worker from the list of online workers and clean up tcp connection
+	manager.workersListMutex.Lock()
 	delete(manager.workers, pid)
-
-	manager.jobsListMutex.Unlock()
 	manager.workersListMutex.Unlock()
-	manager.activeJobsMutex.Unlock()
 }
 
 // jobStartedHandler Handler for jobs starting events
 func (manager *IngestionManager) jobStartedHandler(pid int, jid int64) {
-	manager.jobsListMutex.Lock()
-	manager.workersListMutex.Lock()
-	manager.activeJobsMutex.Lock()
+	//Validate that worker exists
+	if !manager.workerExists(pid) {
+		return
+	}
 
-	//Validate that worker and job exist
-	_, workerExists := manager.workers[pid]
-	_, jobExists := manager.jobsList[jid]
-	if !workerExists || !jobExists {
-		log.Println(logPrefix, fmt.Sprintf("Unknown worker pid: %d or job jid: %d", pid, jid))
+	//Check if the worker has active jobs
+	activeJob, hasJob := manager.hasActiveJob(pid)
+	if !hasJob {
+		return
+	}
+
+	//Check if the job in the healthcheck matches the job in the cache
+	correctJob := manager.correctJob(activeJob, jid)
+	if !correctJob {
 		return
 	}
 
 	log.Println(logPrefix, fmt.Sprintf("Worker with pid: %d started executing job with jid: %d", pid, jid))
 
-	//Insert it in active jobs
-	manager.activeJobs[pid] = manager.jobsList[jid]
-
-	//Remove it from todo jobs
-	manager.unmarkAsInFlight(jid)
-	delete(manager.jobsList, jid)
-
 	//Mark worker as busy
-	worker := manager.workers[pid]
-	worker.Utilization.Busy = true
-	manager.workers[pid] = worker
-
-	manager.jobsListMutex.Unlock()
-	manager.workersListMutex.Unlock()
-	manager.activeJobsMutex.Unlock()
+	manager.updateWorkerBusyStatus(pid, true)
 }
 
 // jobCompletedHandler Handler for jobs completion events
 func (manager *IngestionManager) jobCompletedHandler(pid int, jid int64) {
-	manager.jobsListMutex.Lock()
-	manager.workersListMutex.Lock()
-	manager.activeJobsMutex.Lock()
+	//Validate that worker exists
+	if !manager.workerExists(pid) {
+		return
+	}
 
-	//Validate that worker and job exist
-	_, workerExists := manager.workers[pid]
-	_, jobExists := manager.activeJobs[pid]
-	if !workerExists || !jobExists {
-		log.Println(logPrefix, fmt.Sprintf("Unknown worker pid: %d or job jid: %d", pid, jid))
+	//Check if the worker has active jobs
+	activeJob, hasJob := manager.hasActiveJob(pid)
+	if !hasJob {
+		return
+	}
+
+	//Check if the job in the healthcheck matches the job in the cache
+	correctJob := manager.correctJob(activeJob, jid)
+	if !correctJob {
 		return
 	}
 
 	log.Println(logPrefix, fmt.Sprintf("Worker with pid: %d completed executing job with jid: %d", pid, jid))
 
+	//Remove the active job from in-progress to done
+	err := manager.moveInQueues(activeJob, manager.Queues.InProgress, manager.Queues.Done)
+	errors.HandleError(err, fmt.Sprintf("%s Error while moving job jid: %d from %s to %s by worker pid: %d",
+		logPrefix, jid, manager.Queues.InProgress, manager.Queues.Done, pid), false)
+
 	//Remove it from active jobs
-	delete(manager.activeJobs, pid)
+	err = manager.removeActiveJob(pid)
+	errors.HandleError(err, fmt.Sprintf("%s Error while removing active job jid:%d for worker pid: %d ", logPrefix, jid, pid), false)
 
 	//Mark the worker as not busy
+	manager.updateWorkerBusyStatus(pid, false)
+}
+
+// updateWorkerBusyStatus A function update the worker busy status
+func (manager *IngestionManager) updateWorkerBusyStatus(pid int, status bool) {
+	manager.workersListMutex.Lock()
+
 	worker := manager.workers[pid]
-	worker.Utilization.Busy = false
+	worker.Utilization.Busy = status
 	manager.workers[pid] = worker
 
-	manager.jobsListMutex.Unlock()
 	manager.workersListMutex.Unlock()
-	manager.activeJobsMutex.Unlock()
+}
+
+// workerExists A function to check if a worker exists
+func (manager *IngestionManager) workerExists(pid int) bool {
+	manager.workersListMutex.Lock()
+
+	_, workerExists := manager.workers[pid]
+
+	manager.workersListMutex.Unlock()
+
+	if !workerExists {
+		log.Println(logPrefix, fmt.Sprintf("Unknown worker pid: %d", pid))
+	}
+
+	return workerExists
+}
+
+// hasActiveJob A function to check if a worker has an active job
+func (manager *IngestionManager) hasActiveJob(pid int) (string, bool) {
+	cacheKey, jobExists := manager.getActiveJob(pid)
+	if !jobExists {
+		log.Println(logPrefix, fmt.Sprintf("%s No active jobs for worker pid: %d found in cache", logPrefix, pid))
+		return "", false
+	}
+
+	return cacheKey, true
+}
+
+// correctJob A function to check if the job found in cache matches the job in the event or not
+func (manager *IngestionManager) correctJob(cacheKey string, jid int64) bool {
+	job, err := decode(cacheKey)
+	if errors.IsError(err) {
+		log.Println(fmt.Sprintf("%s Unable to decode job: %s, err: %v", logPrefix, cacheKey, err))
+
+		return true
+	}
+
+	if job.Jid != jid {
+		log.Println(logPrefix, fmt.Sprintf("%s Active job cache mismatch, given: %d, found: %d", logPrefix, jid, job.Jid))
+		return false
+	}
+
+	return true
 }
