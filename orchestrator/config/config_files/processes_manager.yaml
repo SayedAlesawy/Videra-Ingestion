@@ -7,6 +7,7 @@ process_groups:
     arg_assign: "="
     args:
       group:
+      - flag: execution-group-id
       - flag: video-path
       - flag: model-path
       - flag: model-config-path
