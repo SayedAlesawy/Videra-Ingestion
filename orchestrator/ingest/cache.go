@@ -29,7 +29,7 @@ func (manager *IngestionManager) findJobInQueue(queue string, jobKey string) (bo
 
 // A function to get the current active job of a given pid
 func (manager *IngestionManager) getActiveJob(pid int) (string, bool) {
-	value, err := manager.Cache.HGet(manager.CachePrefix, fmt.Sprintf("%d", pid)).Result()
+	value, err := manager.Cache.HGet(manager.getActiveJobKey(), fmt.Sprintf("%d", pid)).Result()
 	if fmt.Sprintf("%v", err) == "redis: nil" && value == "" {
 		return "", false
 	}
@@ -39,7 +39,7 @@ func (manager *IngestionManager) getActiveJob(pid int) (string, bool) {
 
 // A function to get the current active job of a given pid
 func (manager *IngestionManager) removeActiveJob(pid int) error {
-	return manager.Cache.HDel(manager.CachePrefix, fmt.Sprintf("%d", pid)).Err()
+	return manager.Cache.HDel(manager.getActiveJobKey(), fmt.Sprintf("%d", pid)).Err()
 }
 
 // moveInQueues A function to move an object pointed at by key from src to dst
@@ -62,5 +62,10 @@ func (manager *IngestionManager) flushCache() {
 	manager.Cache.Del(manager.Queues.Done)
 
 	//Flush active jobs area
-	manager.Cache.Del(manager.CachePrefix)
+	manager.Cache.Del(manager.getActiveJobKey())
+}
+
+// getActiveJobKey A function to get the hash name where active jobs are stored
+func (manager *IngestionManager) getActiveJobKey() string {
+	return fmt.Sprintf("%s:%s", manager.CachePrefix, "ingestion")
 }
