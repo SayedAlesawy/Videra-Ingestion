@@ -22,6 +22,9 @@ class HeartBeat(Thread):
         self.master_ip = os.getenv('EXECUTION_MANAGER_IP', master_ip)
         self.master_port = os.getenv('EXECUTION_MANAGER_HEARTBEAT_PORT', master_port)
 
+        self.busy = False
+        self.curr_job_id = ''
+
         try:
             self.socket = self.intialize_master_connection()
         except Exception as e:
@@ -49,7 +52,7 @@ class HeartBeat(Thread):
             gpu_usage = 0
 
         cpu_percent = process_inst.cpu_percent()
-        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage}
+        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage, 'jid': self.curr_job_id}
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
