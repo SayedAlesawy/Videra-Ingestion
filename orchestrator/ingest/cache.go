@@ -7,10 +7,24 @@ import (
 )
 
 // insertTodoJobs A function to insert jobs into the todo queue
-func (manager *IngestionManager) insertTodoJobs(jobs []interface{}) {
-	ret := manager.Cache.LPush(manager.Queues.Todo, jobs...)
+func (manager *IngestionManager) insertJobsInQueue(queue string, jobs ...interface{}) error {
+	return manager.Cache.LPush(queue, jobs...).Err()
+}
 
-	errors.HandleError(ret.Err(), fmt.Sprintf("%s Unable to insert todo jobs", logPrefix), true)
+// findJobInQueue A function to check if a job exists in a queue or not
+func (manager *IngestionManager) findJobInQueue(queue string, jobKey string) (bool, error) {
+	jobs, err := manager.Cache.LRange(queue, 0, -1).Result()
+	if errors.IsError(err) {
+		return false, err
+	}
+
+	for _, job := range jobs {
+		if job == jobKey {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // A function to get the current active job of a given pid

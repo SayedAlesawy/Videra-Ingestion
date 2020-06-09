@@ -42,8 +42,7 @@ func IngestionManagerInstance() *IngestionManager {
 		}
 
 		manager.getQueueNames(configObj.Queues)
-		manager.populateJobsPool()
-		log.Println(manager.CachePrefix)
+
 		ingestionManagerInstance = &manager
 	})
 
@@ -53,12 +52,19 @@ func IngestionManagerInstance() *IngestionManager {
 // Start Starts the ingestion manager job scheduling routine
 func (manager *IngestionManager) Start() {
 	log.Println(logPrefix, "Starting Ingestion Manager")
+
+	log.Println(logPrefix, "Inserting jobs in %s", manager.Queues.Todo)
+
+	jobCount := manager.populateJobsPool()
+
+	log.Println(logPrefix, "Successfully inserted %d jobs in %s", jobCount, manager.Queues.Todo)
 }
 
 // Shutdown A function to shutdown the ingestion manager
 func (manager *IngestionManager) Shutdown() {
 	log.Println(logPrefix, "Ingestion Manager cleaning cache")
 
+	//TODO: Make sure to only do this on success
 	manager.flushCache()
 
 	log.Println(logPrefix, "Ingestion Manager shutdown successfully")
@@ -73,7 +79,7 @@ func (manager *IngestionManager) getQueueNames(queues config.Queue) {
 }
 
 // populateJobsPool Populates the jobs pool of the ingestion manager
-func (manager *IngestionManager) populateJobsPool() {
+func (manager *IngestionManager) populateJobsPool() int {
 	var jobs []interface{}
 
 	jobsCount := manager.frameCount / manager.jobSize
@@ -98,5 +104,8 @@ func (manager *IngestionManager) populateJobsPool() {
 		jobs = append(jobs, encodedJob)
 	}
 
-	manager.insertTodoJobs(jobs)
+	err := manager.insertJobsInQueue(manager.Queues.Todo, jobs...)
+	errors.HandleError(err, fmt.Sprintf("%s Unable to insert todo jobs on start up", logPrefix), true)
+
+	return len(jobs)
 }
