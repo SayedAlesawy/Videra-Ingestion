@@ -9,6 +9,7 @@ import (
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/hasher"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/params"
 )
 
@@ -53,11 +54,11 @@ func IngestionManagerInstance() *IngestionManager {
 func (manager *IngestionManager) Start() {
 	log.Println(logPrefix, "Starting Ingestion Manager")
 
-	log.Println(logPrefix, "Inserting jobs in %s", manager.Queues.Todo)
+	log.Println(logPrefix, fmt.Sprintf("Inserting jobs in %s", manager.Queues.Todo))
 
 	jobCount := manager.populateJobsPool()
 
-	log.Println(logPrefix, "Successfully inserted %d jobs in %s", jobCount, manager.Queues.Todo)
+	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", jobCount, manager.Queues.Todo))
 }
 
 // Shutdown A function to shutdown the ingestion manager
@@ -81,6 +82,7 @@ func (manager *IngestionManager) getQueueNames(queues config.Queue) {
 // populateJobsPool Populates the jobs pool of the ingestion manager
 func (manager *IngestionManager) populateJobsPool() int {
 	var jobs []interface{}
+	jobTokens := make(map[string]string)
 
 	jobsCount := manager.frameCount / manager.jobSize
 	remainder := manager.frameCount % manager.jobSize
@@ -101,11 +103,16 @@ func (manager *IngestionManager) populateJobsPool() int {
 		encodedJob, err := job.encode()
 		errors.HandleError(err, fmt.Sprintf("%s Unable to encode job: %+v", logPrefix, job), true)
 
-		jobs = append(jobs, encodedJob)
+		jobToken := hasher.MD5Hash(encodedJob)
+		jobs = append(jobs, jobToken)
+		jobTokens[jobToken] = encodedJob
 	}
 
 	err := manager.insertJobsInQueue(manager.Queues.Todo, jobs...)
 	errors.HandleError(err, fmt.Sprintf("%s Unable to insert todo jobs on start up", logPrefix), true)
+
+	err = manager.insertJobTokens(jobTokens)
+	errors.HandleError(err, fmt.Sprintf("%s Unable to insert job keys on start up", logPrefix), true)
 
 	return len(jobs)
 }

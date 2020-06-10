@@ -11,15 +11,20 @@ func (manager *IngestionManager) insertJobsInQueue(queue string, jobs ...interfa
 	return manager.Cache.LPush(queue, jobs...).Err()
 }
 
+// insertJobTokens A function to insert job tokens into the the lookup area
+func (manager *IngestionManager) insertJobTokens(jobs map[string]string) error {
+	return manager.Cache.HMSet(manager.getJobTokensHashKey(), jobs).Err()
+}
+
 // findJobInQueue A function to check if a job exists in a queue or not
-func (manager *IngestionManager) findJobInQueue(queue string, jobKey string) (bool, error) {
+func (manager *IngestionManager) findJobInQueue(queue string, jobToken string) (bool, error) {
 	jobs, err := manager.Cache.LRange(queue, 0, -1).Result()
 	if errors.IsError(err) {
 		return false, err
 	}
 
 	for _, job := range jobs {
-		if job == jobKey {
+		if job == jobToken {
 			return true, nil
 		}
 	}
@@ -28,13 +33,23 @@ func (manager *IngestionManager) findJobInQueue(queue string, jobKey string) (bo
 }
 
 // A function to get the current active job of a given pid
-func (manager *IngestionManager) getActiveJob(pid int) (string, bool) {
-	value, err := manager.Cache.HGet(manager.getActiveJobKey(), fmt.Sprintf("%d", pid)).Result()
-	if fmt.Sprintf("%v", err) == "redis: nil" && value == "" {
+func (manager *IngestionManager) getActiveJob(jobToken string) (string, bool) {
+	job, err := manager.Cache.HGet(manager.getJobTokensHashKey(), jobToken).Result()
+	if fmt.Sprintf("%v", err) == "redis: nil" && job == "" {
 		return "", false
 	}
 
-	return value, true
+	return job, true
+}
+
+// getActiveJobToken A function to get the active job token
+func (manager *IngestionManager) getActiveJobToken(pid int) (string, bool) {
+	jobToken, err := manager.Cache.HGet(manager.getActiveJobKey(), fmt.Sprintf("%d", pid)).Result()
+	if fmt.Sprintf("%v", err) == "redis: nil" && jobToken == "" {
+		return "", false
+	}
+
+	return jobToken, true
 }
 
 // A function to get the current active job of a given pid
@@ -63,9 +78,17 @@ func (manager *IngestionManager) flushCache() {
 
 	//Flush active jobs area
 	manager.Cache.Del(manager.getActiveJobKey())
+
+	//Flush job tokens area
+	manager.Cache.Del(manager.getJobTokensHashKey())
 }
 
 // getActiveJobKey A function to get the hash name where active jobs are stored
 func (manager *IngestionManager) getActiveJobKey() string {
-	return fmt.Sprintf("%s:%s", manager.CachePrefix, "ingestion")
+	return fmt.Sprintf("%s:%s:%s", manager.CachePrefix, "ingestion", "active_jobs")
+}
+
+// getJobsKeysHashKey A function to get the hash name where jobs keys are stored
+func (manager *IngestionManager) getJobTokensHashKey() string {
+	return fmt.Sprintf("%s:%s:%s", manager.CachePrefix, "ingestion", "jobs")
 }

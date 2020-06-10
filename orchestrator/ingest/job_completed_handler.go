@@ -15,19 +15,19 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid int64) {
 	}
 
 	//Check if the worker has active jobs
-	activeJob, hasJob := manager.hasActiveJob(pid)
+	activeJobToken, hasJob := manager.hasActiveJob(pid)
 	if !hasJob {
 		return
 	}
 
 	//Check if the job in the healthcheck matches the job in the cache
-	correctJob := manager.correctJob(activeJob, jid)
+	correctJob := manager.correctJob(activeJobToken, jid)
 	if !correctJob {
 		return
 	}
 
 	//Check that the job is in done queue
-	inDone, err := manager.findJobInQueue(manager.Queues.Done, activeJob)
+	inDone, err := manager.findJobInQueue(manager.Queues.Done, activeJobToken)
 	if errors.IsError(err) {
 		log.Println(logPrefix, fmt.Sprintf("Error while searching for job jid: %d in %s for worker pid: %d ",
 			jid, manager.Queues.Done, pid))
@@ -37,7 +37,7 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid int64) {
 			log.Println(logPrefix, fmt.Sprintf("Job jid: %d is not in %s for worker pid: %d. Sending back to %s",
 				jid, manager.Queues.Done, pid, manager.Queues.Todo))
 
-			err := manager.insertJobsInQueue(manager.Queues.Todo, activeJob)
+			err := manager.insertJobsInQueue(manager.Queues.Todo, activeJobToken)
 			errors.HandleError(err, fmt.Sprintf("%s Error while inserting job jid: %d in %s for worker pid: %d",
 				logPrefix, jid, manager.Queues.Todo, pid), false)
 		}

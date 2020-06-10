@@ -13,13 +13,13 @@ func (manager *IngestionManager) jobStartedHandler(pid int, jid int64) {
 	}
 
 	//Check if the worker has active jobs
-	activeJob, hasJob := manager.hasActiveJob(pid)
+	activeJobToken, hasJob := manager.hasActiveJob(pid)
 	if !hasJob {
 		return
 	}
 
 	//Check if the job in the healthcheck matches the job in the cache
-	correctJob := manager.correctJob(activeJob, jid)
+	correctJob := manager.correctJob(activeJobToken, jid)
 	if !correctJob {
 		return
 	}
