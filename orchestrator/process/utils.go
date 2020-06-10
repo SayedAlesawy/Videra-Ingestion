@@ -35,7 +35,7 @@ func buildStagedProcessesList(managerConfig config.ProcessesManagerConfig) []pro
 				processArgs = getProcessArgs(group.ArgPrefix, group.ArgAssign, group.Args.Process[i], false)
 			}
 
-			stagedProcessesList = append(stagedProcessesList, newProcess(getProcessJobsPort(group.Args.Process[i]), groupInstance, processArgs))
+			stagedProcessesList = append(stagedProcessesList, newProcess(groupInstance, processArgs))
 		}
 	}
 
@@ -60,15 +60,4 @@ func getProcessArgs(argsPrefix string, argsAssign string, args []config.ProcessA
 	}
 
 	return processArgs
-}
-
-// getProcessJobsPort A function to extract the port number from the config file args
-func getProcessJobsPort(args []config.ProcessArg) string {
-	for _, arg := range args {
-		if arg.Flag == "port" {
-			return arg.Value
-		}
-	}
-
-	return ""
 }
