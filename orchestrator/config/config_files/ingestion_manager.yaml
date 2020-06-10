@@ -1,0 +1,5 @@
+job_size: 10
+queues:
+  todo: ingestion:todo
+  in_progress: ingestion:in-progress
+  done: ingestion:done
