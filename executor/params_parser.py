@@ -25,7 +25,6 @@ def parse_process_args():
     parser.add_argument('-model-config-path',
                         help='contains info for how the model input is expected',
                         required=True)
-    parser.add_argument('-port', help='port number', required=True)
     args = parser.parse_args()
 
     if validate_args(args):
