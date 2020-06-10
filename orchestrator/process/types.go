@@ -27,7 +27,7 @@ type Utilization struct {
 	CPU  float32 `json:"cpu"`  //CPU utilization
 	GPU  float32 `json:"gpu"`  //GPU utilization
 	RAM  float32 `json:"ram"`  //RAM utilization
-	Jid  int64   `json:"jid"`  //Id of the job that the process is busy doing
+	Jid  string  `json:"jid"`  //Id of the job that the process is busy doing
 	Busy bool    `json:"busy"` //True if the porocess is executing a job
 }
 

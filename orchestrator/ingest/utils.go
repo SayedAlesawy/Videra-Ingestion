@@ -3,8 +3,6 @@ package ingest
 import (
 	"fmt"
 	"log"
-
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 )
 
 // updateWorkerBusyStatus A function update the worker busy status
@@ -43,26 +41,4 @@ func (manager *IngestionManager) hasActiveJob(pid int) (string, bool) {
 	}
 
 	return jobToken, true
-}
-
-// correctJob A function to check if the job found in cache matches the job in the event or not
-func (manager *IngestionManager) correctJob(jobToken string, jid int64) bool {
-	activeJob, exists := manager.getActiveJob(jobToken)
-	if !exists {
-		log.Println(logPrefix, fmt.Sprintf("Job token: %s doesn't match any job", jobToken))
-	}
-
-	job, err := decode(activeJob)
-	if errors.IsError(err) {
-		log.Println(fmt.Sprintf("%s Unable to decode job: %s, err: %v", logPrefix, activeJob, err))
-
-		return true
-	}
-
-	if job.Jid != jid {
-		log.Println(logPrefix, fmt.Sprintf("%s Active job cache mismatch, given: %d, found: %d", logPrefix, jid, job.Jid))
-		return false
-	}
-
-	return true
 }

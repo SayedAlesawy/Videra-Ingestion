@@ -32,16 +32,6 @@ func (manager *IngestionManager) findJobInQueue(queue string, jobToken string) (
 	return false, nil
 }
 
-// A function to get the current active job of a given pid
-func (manager *IngestionManager) getActiveJob(jobToken string) (string, bool) {
-	job, err := manager.Cache.HGet(manager.getJobTokensHashKey(), jobToken).Result()
-	if fmt.Sprintf("%v", err) == "redis: nil" && job == "" {
-		return "", false
-	}
-
-	return job, true
-}
-
 // getActiveJobToken A function to get the active job token
 func (manager *IngestionManager) getActiveJobToken(pid int) (string, bool) {
 	jobToken, err := manager.Cache.HGet(manager.getActiveJobKey(), fmt.Sprintf("%d", pid)).Result()

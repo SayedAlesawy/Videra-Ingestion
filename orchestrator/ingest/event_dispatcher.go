@@ -18,10 +18,10 @@ func (manager *IngestionManager) Notify(event pubsub.Event) {
 		manager.workerCrashedHandler(event.Args[0].(int))
 
 	case health.EventJobStarted:
-		manager.jobStartedHandler(event.Args[0].(int), event.Args[1].(int64))
+		manager.jobStartedHandler(event.Args[0].(int), event.Args[1].(string))
 
 	case health.EventJobCompleted:
-		manager.jobCompletedHandler(event.Args[0].(int), event.Args[1].(int64))
+		manager.jobCompletedHandler(event.Args[0].(int), event.Args[1].(string))
 
 	default:
 		log.Println(logPrefix, "Unknown event type:", event.Type)
