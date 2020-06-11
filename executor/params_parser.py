@@ -25,6 +25,7 @@ def parse_process_args():
     parser.add_argument('-model-config-path',
                         help='contains info for how the model input is expected',
                         required=True)
+    parser.add_argument('-execution-group-id', help='id asssigned to the execution manager, used to scope redis queues')
     args = parser.parse_args()
 
     if validate_args(args):
