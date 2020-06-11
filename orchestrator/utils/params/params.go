@@ -20,11 +20,12 @@ const (
 
 // Params flag names
 const (
-	videopathFlag       = "video-path"
-	modelPathFlag       = "model-path"
-	modelConfigPathFlag = "model-config-path"
-	startIdxFlag        = "start-idx"
-	frameCountFlag      = "frame-count"
+	executionGroupIDFlag = "execution-group-id"
+	videopathFlag        = "video-path"
+	modelPathFlag        = "model-path"
+	modelConfigPathFlag  = "model-config-path"
+	startIdxFlag         = "start-idx"
+	frameCountFlag       = "frame-count"
 )
 
 // orchestratorParamsOnce Used to garauntee thread safety for singleton instances
@@ -36,6 +37,7 @@ var orchestratorParamsInstance *OrchestratorParams
 // OrchestratorParamsInstance A function to return the orchestrator params singleton instance
 func OrchestratorParamsInstance() *OrchestratorParams {
 	orchestratorParamsOnce.Do(func() {
+		execGroupID := flag.String(executionGroupIDFlag, "", "unique id for the execution group")
 		videoPath := flag.String(videopathFlag, "", "path to the video to be processed")
 		modelPath := flag.String(modelPathFlag, "", "path to the model to be applied")
 		configPath := flag.String(modelConfigPathFlag, "", "path to the model config to be applied")
@@ -45,11 +47,12 @@ func OrchestratorParamsInstance() *OrchestratorParams {
 		flag.Parse()
 
 		orchestratorParams := OrchestratorParams{
-			VideoPath:       validatePath(validate(videopathFlag, *videoPath).(string)),
-			ModelPath:       validatePath(validate(modelPathFlag, *modelPath).(string)),
-			ModelConfigPath: validatePath(validate(modelConfigPathFlag, *configPath).(string)),
-			StartIdx:        validate(startIdxFlag, *startIdx).(int64),
-			FrameCount:      validate(frameCountFlag, *frameCount).(int64),
+			VideoPath:        validatePath(validate(videopathFlag, *videoPath).(string)),
+			ModelPath:        validatePath(validate(modelPathFlag, *modelPath).(string)),
+			ModelConfigPath:  validatePath(validate(modelConfigPathFlag, *configPath).(string)),
+			ExecutionGroupID: validate(executionGroupIDFlag, *execGroupID).(string),
+			StartIdx:         validate(startIdxFlag, *startIdx).(int64),
+			FrameCount:       validate(frameCountFlag, *frameCount).(int64),
 		}
 
 		orchestratorParams.mapParams()
@@ -66,6 +69,7 @@ func (orchParams *OrchestratorParams) mapParams() {
 	paramsMap[videopathFlag] = orchParams.VideoPath
 	paramsMap[modelPathFlag] = orchParams.ModelPath
 	paramsMap[modelConfigPathFlag] = orchParams.ModelConfigPath
+	paramsMap[executionGroupIDFlag] = orchParams.ExecutionGroupID
 	paramsMap[startIdxFlag] = orchParams.StartIdx
 	paramsMap[frameCountFlag] = orchParams.FrameCount
 

@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/health"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/ingest"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 )
 
@@ -16,11 +17,20 @@ func main() {
 	//Init a processes manager
 	processesManager := process.ProcessesManagerInstance()
 
+	//Init ingestion manager
+	ingestionManager := ingest.IngestionManagerInstance()
+
+	//Start ingestion manager
+	ingestionManager.Start()
+
 	//Execute all processes
 	processesList := processesManager.Start()
 
 	//Init a health check monitor
 	monitor := health.MonitorInstance(processesList)
+
+	//Register the ingestion manager as a subscriber to monitor data
+	monitor.RegisterSubscriber(ingestionManager)
 
 	//Start monitor
 	monitor.Start()
@@ -28,6 +38,7 @@ func main() {
 	select {
 	case <-signals:
 		processesManager.Shutdown()
+		ingestionManager.Shutdown()
 		monitor.Shutdown()
 	}
 }

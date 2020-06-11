@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
@@ -44,4 +45,24 @@ func (manager *ConfigurationManager) getFilePath(filename string) string {
 	filePath := fmt.Sprintf("%s%s", os.ExpandEnv(fmt.Sprintf("%s/", manager.configFilesDir)), filename)
 
 	return filePath
+}
+
+// envString Reads env vars with string values
+func envString(key, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if exists {
+		return value
+	}
+
+	return defaultValue
+}
+
+// envString Reads env vars with integer values
+func envInt(key, defaultValue string) int64 {
+	envVarValue := envString(key, defaultValue)
+
+	value, err := strconv.ParseInt(envVarValue, 10, 64)
+	errors.HandleError(err, "Unable to convert string value (%s) of env var (%s) to integer", true)
+
+	return value
 }

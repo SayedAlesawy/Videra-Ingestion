@@ -10,6 +10,7 @@ import (
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/tcp"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
+	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/pubsub"
 	"github.com/pebbe/zmq4"
 )
 
@@ -40,10 +41,11 @@ func MonitorInstance(processes []process.Process) *Monitor {
 			connectionHandler:        connection,
 			processList:              processList,
 			processListMutex:         &sync.Mutex{},
+			subscribersListMutex:     &sync.Mutex{},
 			livenessProbe:            time.Duration(configObj.LivenessProbe) * time.Second,
 			readinessProbe:           time.Duration(configObj.ReadinessProbe) * time.Second,
-			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Second,
-			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Second,
+			healthCheckInterval:      time.Duration(configObj.HealthCheckInterval) * time.Millisecond,
+			livenessTrackingInterval: time.Duration(configObj.LivenessTrackingInterval) * time.Millisecond,
 			activeRoutines:           activeRoutines,
 			wg:                       sync.WaitGroup{},
 			shutdown:                 make(chan bool, activeRoutines),
@@ -51,21 +53,6 @@ func MonitorInstance(processes []process.Process) *Monitor {
 	})
 
 	return monitorInstance
-}
-
-// IP A function to return the monitor IP
-func (monitorObj *Monitor) IP() string {
-	return monitorObj.ip
-}
-
-// Port A function to return the monitor port
-func (monitorObj *Monitor) Port() string {
-	return monitorObj.port
-}
-
-// ProcessList A function to return the tracked processes list
-func (monitorObj *Monitor) ProcessList() map[int]process.Process {
-	return monitorObj.processList
 }
 
 // Start A function to start the monitor's work
@@ -98,6 +85,11 @@ func (monitorObj *Monitor) Shutdown() {
 	log.Println(logPrefix, "Health check monitor shutdown successfully")
 }
 
+// RegisterSubscriber A function to register a subscriber to the monitor data
+func (monitorObj *Monitor) RegisterSubscriber(subscriber pubsub.Subscriber) {
+	monitorObj.subscribers = append(monitorInstance.subscribers, subscriber)
+}
+
 // listenToHealthChecks A function to listen to health checks
 func (monitorObj *Monitor) listenToHealthChecks() {
 	defer monitorObj.wg.Done()
@@ -127,7 +119,7 @@ func (monitorObj *Monitor) listenToHealthChecks() {
 				log.Println(logPrefix, "Received", healthCheck)
 
 				updateLastSeenWG.Add(1)
-				go monitorObj.updateProcessLastSeen(healthCheck, &updateLastSeenWG)
+				go monitorObj.updateProcessStats(healthCheck, &updateLastSeenWG)
 			}
 		}
 	}
@@ -171,6 +163,7 @@ func (monitorObj *Monitor) trackLiveness() {
 					errors.HandleError(err, fmt.Sprintf("%v", err), false)
 					if !errors.IsError(err) {
 						delete(monitorObj.processList, pid)
+						monitorObj.notify(pubsub.NewEvent(EventProcessCrashed, pid))
 
 						log.Println(logPrefix, fmt.Sprintf("Killed process with pid: %d", pid))
 					}
@@ -198,7 +191,7 @@ func (monitorObj *Monitor) initiateRespawn() {
 
 			return
 		default:
-			log.Println(logPrefix, "Initiating re-spawning")
+			log.Println(logPrefix, "Checking replica set")
 
 			processes := process.ProcessesManagerInstance().RespawnStagedProcesses()
 			if len(processes) == 0 {
@@ -216,28 +209,45 @@ func (monitorObj *Monitor) initiateRespawn() {
 	}
 }
 
-// updateProcessLastSeen A function to update the last seen of processes in the process list
-func (monitorObj *Monitor) updateProcessLastSeen(healthCheck string, wg *sync.WaitGroup) {
+// updateProcessStats A function to update the last seen of processes in the process list
+func (monitorObj *Monitor) updateProcessStats(healthCheck string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	processUtil, err := process.ParseUtilization(healthCheck)
-	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessLastSeen()"), false)
+	errors.HandleError(err, fmt.Sprintf("%s%s", logPrefix, "Unable to unmarshal health check ping at updateProcessStats()"), false)
 	if errors.IsError(err) {
 		return
 	}
 
 	monitorObj.processListMutex.Lock()
 	pid := processUtil.Pid
+	jid := processUtil.Jid
 
 	process, exists := monitorObj.processList[pid]
 	if exists {
-		if !process.Trackable {
-			process.Trackable = true
-		}
 		process.Utilization.CPU = processUtil.CPU
 		process.Utilization.GPU = processUtil.GPU
 		process.Utilization.RAM = processUtil.RAM
 		process.LastPing = time.Now()
+
+		//Job started
+		if !process.Utilization.Busy && processUtil.Busy {
+			monitorObj.notify(pubsub.NewEvent(EventJobStarted, pid, jid))
+		}
+
+		//Job compelted
+		if process.Utilization.Busy && !processUtil.Busy {
+			monitorObj.notify(pubsub.NewEvent(EventJobCompleted, pid, jid))
+		}
+
+		process.Utilization.Busy = processUtil.Busy
+
+		if !process.Trackable {
+			process.Trackable = true
+			process.FirstPing = process.LastPing
+
+			monitorObj.notify(pubsub.NewEvent(EventProcessOnline, pid, process))
+		}
 
 		monitorObj.processList[pid] = process
 	}
