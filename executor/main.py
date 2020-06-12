@@ -5,11 +5,7 @@ import atexit
 from params_parser import parse_process_args
 from heartbeat import HeartBeat
 from receiver import Receiver
-import time
-
-
-def process(job_meta):
-    time.sleep(10)
+from execution_worker import ExecutionWorker
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -43,6 +39,7 @@ if __name__ == "__main__":
     logger.info('[EXEC] waiting for heartbeat to terimnate')
 
     receiver = Receiver(cache_prefix=args.execution_group_id, pid=pid)
+    executor = ExecutionWorker(args.model_path, args.video_path)
     while True:
         job_meta, job_key = receiver.get_new_job()
         try:
@@ -54,7 +51,7 @@ if __name__ == "__main__":
         heartbeat.busy = True
         heartbeat.send_heartbeat()
 
-        process(job_meta)
+        executor.execute(job_meta)
 
         receiver.mark_job_as_done(job_key)
         heartbeat.busy = False
