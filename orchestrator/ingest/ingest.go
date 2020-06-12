@@ -9,7 +9,6 @@ import (
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/hasher"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/params"
 )
 
@@ -103,9 +102,8 @@ func (manager *IngestionManager) populateJobsPool() int {
 		encodedJob, err := job.encode()
 		errors.HandleError(err, fmt.Sprintf("%s Unable to encode job: %+v", logPrefix, job), true)
 
-		jobToken := hasher.MD5Hash(encodedJob)
-		jobs = append(jobs, jobToken)
-		jobTokens[jobToken] = encodedJob
+		jobs = append(jobs, jid)
+		jobTokens[fmt.Sprintf("%d", jid)] = encodedJob
 	}
 
 	err := manager.insertJobsInQueue(manager.Queues.Todo, jobs...)
