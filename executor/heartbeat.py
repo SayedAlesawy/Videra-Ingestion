@@ -37,7 +37,9 @@ class HeartBeat(Thread):
         socket = context.socket(zmq.PUB)
         socket.connect(f"tcp://{self.master_ip}:{self.master_port}")
 
-        logger.info(f'[{self.tag}] Connection established successfully with execution manager at port {self.master_port}') # noqa
+        logger.info(
+            f'[{self.tag}] Connection established successfully with execution manager at port {self.master_port}'
+        )
         return socket
 
     def collect_process_usage_stats(self):
@@ -52,7 +54,14 @@ class HeartBeat(Thread):
             gpu_usage = 0
 
         cpu_percent = process_inst.cpu_percent()
-        return {"pid": self.process_id, "cpu": cpu_percent, "ram": ram_usage, "gpu": gpu_usage, 'jid': self.curr_job_id}
+        return {
+            "pid": self.process_id,
+            "cpu": cpu_percent,
+            "ram": ram_usage,
+            "gpu": gpu_usage,
+            'jid': self.curr_job_id,
+            "busy": self.busy
+        }
 
     def send_heartbeat(self):
         usage_stats = self.collect_process_usage_stats()
@@ -70,9 +79,9 @@ class HeartBeat(Thread):
         lines_ns = ns.readlines()
         total_gpu_memory = 0
         for line in lines_ns:
-            if('%' in line):
+            if ('%' in line):
                 total_gpu_memory = int(line.split('MiB')[-2].replace('/', ''))
-            if(str(self.process_id) in line and total_gpu_memory > 0):
+            if (str(self.process_id) in line and total_gpu_memory > 0):
                 return int(line.split(' ')[-2].replace('MiB', '')) / total_gpu_memory
 
         return 0  # if no entry for us then this process not using gpu
@@ -84,7 +93,9 @@ class HeartBeat(Thread):
             try:
                 self.send_heartbeat()
             except Exception as e:
-                logger.error(f'[{self.tag}] Failed to send heartbeat to execution manager on port {self.master_port} due to: {e}') # noqa
+                logger.error(
+                    f'[{self.tag}] Failed to send heartbeat to execution manager on port {self.master_port} due to: {e}'
+                )
 
         self.socket.disconnect(f"tcp://{self.master_ip}:{self.master_port}")
-        logger.info('')
+        logger.info(f'[{self.tag}] shutting down hearbeat')
