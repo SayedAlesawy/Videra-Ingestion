@@ -15,7 +15,7 @@ stream = logging.StreamHandler(sys.stdout)
 stream.setLevel(logging.INFO)
 logger.addHandler(stream)
 
-fh = logging.FileHandler(f'logs/executor/logs-{os.getpid()}.log')
+fh = logging.FileHandler(f'./logs/executor/logs-{os.getpid()}.log')
 fh.setLevel(logging.INFO)
 logger.addHandler(fh)
 

@@ -32,6 +32,10 @@ class ExecutionWorker():
             logger.exception(f'failed to load model due to : {e}')
 
     def load_video(self, video_path):
+        """
+        loads a video at the position of the
+        specified frame in the job message
+        """
         logger.info(f'{self.tag} loading video ....')
         try:
             self.video_cap = cv2.VideoCapture(video_path)
@@ -41,6 +45,11 @@ class ExecutionWorker():
             logger.exception(f'failed to load video due to : {e}')
 
     def write_labels(self):
+        """
+        write the output of execution as json formatted
+        {frame_id: label}
+        to disk
+        """
         video_file_name = path.basename(self.video_path)
         labels_file_name = f"{video_file_name}-{self.start_frame_idx}-{self.frame_end_index}.json"
         logger.info(f"{self.tag} writing output to {labels_file_name}")
@@ -48,6 +57,10 @@ class ExecutionWorker():
             json.dump(self.labels, f)
 
     def execute(self, job_meta):
+        """
+        executes given job by calling appropiate methods in
+        order
+        """
         self.start_frame_idx = int(job_meta.get('start_idx'))
         self.frame_end_index = self.start_frame_idx + int(job_meta.get('frames_count'))
         self.load_video(self.video_path)
@@ -56,7 +69,10 @@ class ExecutionWorker():
         self.write_labels()
 
     def execute_packets(self, packets):
-        logger.info(f'{self.tag} recieved {len(packets)} packets to execute')
+        """
+        executes packets produced by load_packets concurrently
+        """
+        logger.info(f'{self.tag} recieved packets to execute (consumer-producer)')
         processed_packets_count = 0
         for packet in packets:
             self.execute_packet(packet, processed_packets_count)
@@ -66,17 +82,21 @@ class ExecutionWorker():
         return self.labels
 
     def load_packets(self):
+        """
+        loads frames from disk and
+        groups them into arrays of size stride
+        each packets contains x frames as specified
+        by model config
+        """
         packets = []
-        logger.info(f'{self.tag} loading packets from vidoe source')
+        logger.info(f'{self.tag} loading packets from vidoe source (consumer-producer)')
         for i in range(self.start_frame_idx, self.frame_end_index, self.stride):
             frames = []
             for j in range(self.stride):
                 ret, frame = self.video_cap.read()
                 frames.append(frame)
             packets.append(frames)
-
-        logger.info(f'{self.tag} loaded {len(packets)} packets successfully')
-        return packets
+            yield frames
 
     def execute_packet(self, data_packet, index):
         try:
