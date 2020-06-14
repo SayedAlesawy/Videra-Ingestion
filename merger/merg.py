@@ -1,6 +1,7 @@
 import json
 import logging
-from os import listdir, stat, mkdir
+import sys
+from os import listdir, stat, mkdir, getpid
 from os.path import isfile, join, dirname
 from params_parser import parse_process_args
 
@@ -100,6 +101,14 @@ if __name__ == "__main__":
     mypath = args.input_files_path
     number_of_files = args.no_files
     output_path = args.output_file_path
+
+    stream = logging.StreamHandler(sys.stdout)
+    stream.setLevel(logging.INFO)
+    logger.addHandler(stream)
+
+    fh = logging.FileHandler(f'./logs/merger/logs-{getpid()}.log')
+    fh.setLevel(logging.INFO)
+    logger.addHandler(fh)
 
     files_list = [f for f in listdir(mypath)
                   if isfile(join(mypath, f)) and ".json" in f]
