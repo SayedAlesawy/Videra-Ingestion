@@ -3,7 +3,9 @@ package ingest
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/config"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/redis"
@@ -32,13 +34,14 @@ func IngestionManagerInstance() *IngestionManager {
 		errors.HandleError(err, fmt.Sprintf("%s Unable to connect to caching layer", logPrefix), true)
 
 		manager := IngestionManager{
-			startIdx:         params.StartIdx,
-			frameCount:       params.FrameCount,
-			jobSize:          configObj.JobSize,
-			workers:          make(map[int]process.Process),
-			workersListMutex: &sync.Mutex{},
-			Cache:            cacheInstance,
-			CachePrefix:      params.ExecutionGroupID,
+			startIdx:          params.StartIdx,
+			frameCount:        params.FrameCount,
+			jobSize:           configObj.JobSize,
+			workers:           make(map[int]process.Process),
+			workersListMutex:  &sync.Mutex{},
+			Cache:             cacheInstance,
+			CachePrefix:       params.ExecutionGroupID,
+			CheckDoneInterval: time.Duration(configObj.CheckDoneInterval) * time.Second,
 		}
 
 		manager.getQueueNames(configObj.Queues)
@@ -50,26 +53,50 @@ func IngestionManagerInstance() *IngestionManager {
 }
 
 // Start Starts the ingestion manager job scheduling routine
-func (manager *IngestionManager) Start() {
+func (manager *IngestionManager) Start(done chan os.Signal) {
 	log.Println(logPrefix, "Starting Ingestion Manager")
 
 	log.Println(logPrefix, fmt.Sprintf("Inserting jobs in %s", manager.Queues.Todo))
 
-	jobCount := manager.populateJobsPool()
+	manager.JobCount = manager.populateJobsPool()
 
-	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", jobCount, manager.Queues.Todo))
+	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", manager.JobCount, manager.Queues.Todo))
+
+	//Check when ingestion is done
+	go manager.checkDone(done)
 }
 
 // Shutdown A function to shutdown the ingestion manager
 func (manager *IngestionManager) Shutdown() {
 	log.Println(logPrefix, "Ingestion Manager cleaning cache")
 
-	//TODO: Make sure to only do this on success
 	manager.flushCache()
 
 	log.Println(logPrefix, "Ingestion Manager shutdown successfully")
 }
 
+// checkDone A function to check if all ingestion jobs are done or not
+func (manager *IngestionManager) checkDone(done chan os.Signal) {
+	for range time.Tick(manager.CheckDoneInterval) {
+		doneLen, err := manager.getQueueLength(manager.Queues.Done)
+		if errors.IsError(err) {
+			log.Println(logPrefix, fmt.Sprintf("Unable to check %s length, err: %v", manager.Queues.Done, err))
+			continue
+		}
+
+		//If all jobs are done, then terminate
+		if int(doneLen) == manager.JobCount {
+			log.Println(logPrefix, fmt.Sprintf("Done ingesting all %d jobs. Terminating.", manager.JobCount))
+
+			manager.Shutdown()
+			done <- os.Kill
+
+			return
+		}
+	}
+}
+
+// getQueueNames A function to contruct ingestion queue names
 func (manager *IngestionManager) getQueueNames(queues config.Queue) {
 	manager.Queues = Queue{
 		Todo:       fmt.Sprintf("%s:%s", manager.CachePrefix, queues.Todo),
