@@ -39,9 +39,9 @@ func IngestionManagerInstance() *IngestionManager {
 			jobSize:           configObj.JobSize,
 			workers:           make(map[int]process.Process),
 			workersListMutex:  &sync.Mutex{},
-			Cache:             cacheInstance,
-			CachePrefix:       params.ExecutionGroupID,
-			CheckDoneInterval: time.Duration(configObj.CheckDoneInterval) * time.Second,
+			cache:             cacheInstance,
+			cachePrefix:       params.ExecutionGroupID,
+			checkDoneInterval: time.Duration(configObj.CheckDoneInterval) * time.Second,
 		}
 
 		manager.getQueueNames(configObj.Queues)
@@ -56,11 +56,11 @@ func IngestionManagerInstance() *IngestionManager {
 func (manager *IngestionManager) Start(done chan os.Signal) {
 	log.Println(logPrefix, "Starting Ingestion Manager")
 
-	log.Println(logPrefix, fmt.Sprintf("Inserting jobs in %s", manager.Queues.Todo))
+	log.Println(logPrefix, fmt.Sprintf("Inserting jobs in %s", manager.queues.Todo))
 
-	manager.JobCount = manager.populateJobsPool()
+	manager.jobCount = manager.populateJobsPool()
 
-	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", manager.JobCount, manager.Queues.Todo))
+	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", manager.jobCount, manager.queues.Todo))
 
 	//Check when ingestion is done
 	go manager.checkDone(done)
@@ -77,16 +77,16 @@ func (manager *IngestionManager) Shutdown() {
 
 // checkDone A function to check if all ingestion jobs are done or not
 func (manager *IngestionManager) checkDone(done chan os.Signal) {
-	for range time.Tick(manager.CheckDoneInterval) {
-		doneLen, err := manager.getQueueLength(manager.Queues.Done)
+	for range time.Tick(manager.checkDoneInterval) {
+		doneLen, err := manager.getQueueLength(manager.queues.Done)
 		if errors.IsError(err) {
-			log.Println(logPrefix, fmt.Sprintf("Unable to check %s length, err: %v", manager.Queues.Done, err))
+			log.Println(logPrefix, fmt.Sprintf("Unable to check %s length, err: %v", manager.queues.Done, err))
 			continue
 		}
 
 		//If all jobs are done, then terminate
-		if int(doneLen) == manager.JobCount {
-			log.Println(logPrefix, fmt.Sprintf("Done ingesting all %d jobs. Terminating.", manager.JobCount))
+		if int(doneLen) == manager.jobCount {
+			log.Println(logPrefix, fmt.Sprintf("Done ingesting all %d jobs. Terminating.", manager.jobCount))
 
 			manager.Shutdown()
 			done <- os.Kill
@@ -98,10 +98,10 @@ func (manager *IngestionManager) checkDone(done chan os.Signal) {
 
 // getQueueNames A function to contruct ingestion queue names
 func (manager *IngestionManager) getQueueNames(queues config.Queue) {
-	manager.Queues = Queue{
-		Todo:       fmt.Sprintf("%s:%s", manager.CachePrefix, queues.Todo),
-		InProgress: fmt.Sprintf("%s:%s", manager.CachePrefix, queues.InProgress),
-		Done:       fmt.Sprintf("%s:%s", manager.CachePrefix, queues.Done),
+	manager.queues = Queue{
+		Todo:       fmt.Sprintf("%s:%s", manager.cachePrefix, queues.Todo),
+		InProgress: fmt.Sprintf("%s:%s", manager.cachePrefix, queues.InProgress),
+		Done:       fmt.Sprintf("%s:%s", manager.cachePrefix, queues.Done),
 	}
 }
 
@@ -133,7 +133,7 @@ func (manager *IngestionManager) populateJobsPool() int {
 		jobTokens[fmt.Sprintf("%d", jid)] = encodedJob
 	}
 
-	err := manager.insertJobsInQueue(manager.Queues.Todo, jobs...)
+	err := manager.insertJobsInQueue(manager.queues.Todo, jobs...)
 	errors.HandleError(err, fmt.Sprintf("%s Unable to insert todo jobs on start up", logPrefix), true)
 
 	err = manager.insertJobTokens(jobTokens)
