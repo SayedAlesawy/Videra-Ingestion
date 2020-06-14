@@ -15,11 +15,11 @@ type IngestionManager struct {
 	jobSize           int64                   //Frame count per job
 	workers           map[int]process.Process //Workers to which the manager assigns jobs
 	workersListMutex  *sync.Mutex             //Used to insure thread safety while accessing the workers list
-	Queues            Queue                   //Houses the queues used by the ingestion manager
-	Cache             *redis.Client           //Used by the manager to access a persistent caching layer
-	CachePrefix       string                  //Prefix for cache keys used for scoping
-	JobCount          int                     //Total number of executed jobs
-	CheckDoneInterval time.Duration           //Frequency of checking if all jobs are done
+	queues            Queue                   //Houses the queues used by the ingestion manager
+	cache             *redis.Client           //Used by the manager to access a persistent caching layer
+	cachePrefix       string                  //Prefix for cache keys used for scoping
+	jobCount          int                     //Total number of executed jobs
+	checkDoneInterval time.Duration           //Frequency of checking if all jobs are done
 }
 
 // Queue Defines a queue used in the ingestion manager
