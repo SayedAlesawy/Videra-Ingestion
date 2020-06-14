@@ -59,6 +59,11 @@ func (manager *IngestionManager) moveInQueues(key string, src string, dst string
 	return err
 }
 
+// getQueueLength A function to get queue length
+func (manager *IngestionManager) getQueueLength(queue string) (int64, error) {
+	return manager.Cache.LLen(queue).Result()
+}
+
 // flushCache A function to flush the queues and the active staging area
 func (manager *IngestionManager) flushCache() {
 	//Flush queues

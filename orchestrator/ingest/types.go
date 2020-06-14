@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"sync"
+	"time"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/process"
@@ -9,14 +10,16 @@ import (
 
 // IngestionManager Resposible for scheduling ingestion jobs
 type IngestionManager struct {
-	startIdx         int64                   //Global index to start indexing from
-	frameCount       int64                   //Global frame count to ingest starting from startIdx
-	jobSize          int64                   //Frame count per job
-	workers          map[int]process.Process //Workers to which the manager assigns jobs
-	workersListMutex *sync.Mutex             //Used to insure thread safety while accessing the workers list
-	Queues           Queue                   //Houses the queues used by the ingestion manager
-	Cache            *redis.Client           //Used by the manager to access a persistent caching layer
-	CachePrefix      string                  //Prefix for cache keys used for scoping
+	startIdx          int64                   //Global index to start indexing from
+	frameCount        int64                   //Global frame count to ingest starting from startIdx
+	jobSize           int64                   //Frame count per job
+	workers           map[int]process.Process //Workers to which the manager assigns jobs
+	workersListMutex  *sync.Mutex             //Used to insure thread safety while accessing the workers list
+	Queues            Queue                   //Houses the queues used by the ingestion manager
+	Cache             *redis.Client           //Used by the manager to access a persistent caching layer
+	CachePrefix       string                  //Prefix for cache keys used for scoping
+	JobCount          int                     //Total number of executed jobs
+	CheckDoneInterval time.Duration           //Frequency of checking if all jobs are done
 }
 
 // Queue Defines a queue used in the ingestion manager

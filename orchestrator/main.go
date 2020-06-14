@@ -21,7 +21,7 @@ func main() {
 	ingestionManager := ingest.IngestionManagerInstance()
 
 	//Start ingestion manager
-	ingestionManager.Start()
+	ingestionManager.Start(signals)
 
 	//Execute all processes
 	processesList := processesManager.Start()
@@ -38,7 +38,6 @@ func main() {
 	select {
 	case <-signals:
 		processesManager.Shutdown()
-		ingestionManager.Shutdown()
 		monitor.Shutdown()
 	}
 }
