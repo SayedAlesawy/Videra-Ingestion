@@ -20,35 +20,35 @@ func (manager *IngestionManager) workerCrashedHandler(pid int) {
 	activeJobToken, hasJob := manager.hasActiveJob(pid)
 	if hasJob {
 		//Check in-progress queue, if found, then move to todo
-		inProgress, err := manager.findJobInQueue(manager.Queues.InProgress, activeJobToken)
+		inProgress, err := manager.findJobInQueue(manager.queues.InProgress, activeJobToken)
 		if errors.IsError(err) {
 			log.Println(logPrefix, fmt.Sprintf("%s Error while searching for job in %s for worker pid: %d ",
-				logPrefix, manager.Queues.Done, pid))
+				logPrefix, manager.queues.Done, pid))
 		} else {
 			if inProgress {
 				//Move to todo
-				err := manager.moveInQueues(activeJobToken, manager.Queues.InProgress, manager.Queues.Todo)
+				err := manager.moveInQueues(activeJobToken, manager.queues.InProgress, manager.queues.Todo)
 				errors.HandleError(err, fmt.Sprintf("%s Error while moving active job from %s to %s by worker pid: %d",
-					logPrefix, manager.Queues.InProgress, manager.Queues.Todo, pid), false)
+					logPrefix, manager.queues.InProgress, manager.queues.Todo, pid), false)
 			} else {
 				//Check in done queue
-				inDone, err := manager.findJobInQueue(manager.Queues.Done, activeJobToken)
+				inDone, err := manager.findJobInQueue(manager.queues.Done, activeJobToken)
 				if errors.IsError(err) {
 					log.Println(logPrefix, fmt.Sprintf("Error while searching for job in %s for worker pid: %d ",
-						manager.Queues.Done, pid))
+						manager.queues.Done, pid))
 				} else {
 					if !inDone {
 						//Check in todo queue
-						inTodo, err := manager.findJobInQueue(manager.Queues.Todo, activeJobToken)
+						inTodo, err := manager.findJobInQueue(manager.queues.Todo, activeJobToken)
 						if errors.IsError(err) {
 							log.Println(logPrefix, fmt.Sprintf("Error while searching for job in %s for worker pid: %d ",
-								manager.Queues.Done, pid))
+								manager.queues.Done, pid))
 						} else {
 							if !inTodo {
 								//Insert in todo
-								err := manager.insertJobsInQueue(manager.Queues.Todo, activeJobToken)
+								err := manager.insertJobsInQueue(manager.queues.Todo, activeJobToken)
 								errors.HandleError(err, fmt.Sprintf("%s Error while inserting job in %s for worker pid: %d",
-									logPrefix, manager.Queues.Todo, pid), false)
+									logPrefix, manager.queues.Todo, pid), false)
 							}
 						}
 					}

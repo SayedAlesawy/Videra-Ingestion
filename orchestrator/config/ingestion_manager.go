@@ -2,8 +2,9 @@ package config
 
 // IngestionManagerConfig Houses the configurations of the ingestion manager
 type IngestionManagerConfig struct {
-	JobSize int64 `yaml:"job_size"` //Frame count per job
-	Queues  Queue `yaml:"queues"`   //Defines queues names used in the queueing system
+	JobSize           int64 `yaml:"job_size"`            //Frame count per job
+	CheckDoneInterval int   `yaml:"check_done_interval"` //Frequency of checking done
+	Queues            Queue `yaml:"queues"`              //Defines queues names used in the queueing system
 }
 
 // Queue Defines a queue used in the ingestion manager

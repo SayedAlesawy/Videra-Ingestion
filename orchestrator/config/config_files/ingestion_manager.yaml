@@ -1,4 +1,5 @@
 job_size: 10
+check_done_interval: 10
 queues:
   todo: ingestion:todo
   in_progress: ingestion:in-progress
