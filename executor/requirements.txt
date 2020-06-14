@@ -6,3 +6,4 @@ gpuinfo==1.0.0a6
 redis==3.5.3
 imutils==0.5.3
 face-recognition==1.3.0
+opencv-python==4.2.0.34

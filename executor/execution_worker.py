@@ -56,6 +56,8 @@ class ExecutionWorker():
         with open(f"./output/{labels_file_name}", "w") as f:
             json.dump(self.labels, f)
 
+        self.labels.clear()
+
     def execute(self, job_meta):
         """
         executes given job by calling appropiate methods in
