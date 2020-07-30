@@ -31,7 +31,15 @@ type Queue struct {
 
 // ingestionJob Represents the ingestion job params
 type ingestionJob struct {
-	Jid         int64 `json:"jid"`          //Unique id for job
-	StartIdx    int64 `json:"start_idx"`    //Local index to start indexing from within the job range
-	FramesCount int64 `json:"frames_count"` //Local frame count to ingest starting from the local startIdx
+	Jid         int64  `json:"jid"`          //Unique id for job
+	StartIdx    int64  `json:"start_idx"`    //Local index to start indexing from within the job range
+	FramesCount int64  `json:"frames_count"` //Local frame count to ingest starting from the local startIdx
+	Action      string `json:"action"`       //type of action to be executed on the data range specified
 }
+
+// Job Types
+const (
+	MergeAction   = "merge"   // merge model ouptut in periods statsifying constraints
+	ExecuteAction = "execute" //Execute model on frames
+	NullAction    = "null"    // nothing to do here
+)

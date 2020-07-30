@@ -3,6 +3,7 @@ package ingest
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 )
@@ -35,4 +36,50 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid string) {
 
 	//Mark the worker as not busy
 	manager.updateWorkerBusyStatus(pid, false)
+	log.Println(logPrefix, fmt.Sprintf("checking jid: %s for subsquent jobs", jid))
+	manager.addNextJobInPipeline(jid)
+}
+
+// addNextJobInPipeline Checks if the job is the final stage in its pipeline
+// if not, it fetches the next action to be executed
+// and adds it to the todo queue
+func (manager *IngestionManager) addNextJobInPipeline(jid string) {
+	// ingestion jobs pipeline
+	actionPipeline := map[string]string{
+		ExecuteAction: MergeAction,
+		MergeAction:   NullAction,
+		NullAction:    NullAction,
+	}
+
+	jidNum, err := strconv.Atoi(jid)
+	errors.HandleError(err, fmt.Sprintf("%s Error while inserting subsquent job in pipeline for job: %s",
+		logPrefix, jid), false)
+
+	jobData, fetchStatus := manager.getJobToken(jidNum)
+	if fetchStatus == false {
+		log.Println(logPrefix, fmt.Sprintf("Failed to fetch next job data"))
+		return
+	}
+
+	actionType := jobData.Action
+	if actionPipeline[actionType] != NullAction {
+		nextJid := manager.jobCount + 1
+		jobData.Action = actionPipeline[actionType]
+
+		encodedJob, err := jobData.encode()
+		errors.HandleError(err, fmt.Sprintf("%s Unable to encode job: %+v", logPrefix, jobData), false)
+
+		jobTokens := map[string]string{fmt.Sprintf("%d", nextJid): encodedJob}
+
+		err = manager.insertJobTokens(jobTokens)
+		errors.HandleError(err, fmt.Sprintf("%s Error while inserting next job jid: %s in %s",
+			logPrefix, jid, manager.queues.Todo), false)
+
+		err = manager.insertJobsInQueue(manager.queues.Todo, nextJid)
+		errors.HandleError(err, fmt.Sprintf("%s Error while inserting next job jid: %s in %s",
+			logPrefix, jid, manager.queues.Todo), false)
+
+		log.Println(logPrefix, "done adding new job, new target jobs to finish %d", nextJid)
+		manager.jobCount = nextJid
+	}
 }
