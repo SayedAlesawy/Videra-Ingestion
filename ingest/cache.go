@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
@@ -30,6 +31,20 @@ func (manager *IngestionManager) findJobInQueue(queue string, jobToken string) (
 	}
 
 	return false, nil
+}
+
+// getJob A function to get the job details
+func (manager *IngestionManager) getJob(jid int) (ingestionJob, bool) {
+	jobData := ingestionJob{}
+
+	jobToken, err := manager.cache.HGet(manager.getJobTokensHashKey(), fmt.Sprintf("%d", jid)).Result()
+	if fmt.Sprintf("%v", err) == "redis: nil" && jobToken == "" {
+		return jobData, false
+	}
+
+	err = json.Unmarshal([]byte(jobToken), &jobData)
+	errors.HandleError(err, fmt.Sprint(logPrefix, " Failed to parse job data for jid ", jid), false)
+	return jobData, true
 }
 
 // getActiveJobToken A function to get the active job token

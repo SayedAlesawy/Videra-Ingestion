@@ -14,25 +14,25 @@ def get_ranges(run_count):
     run = []
     i = 0
 
-    while (i <= len(run_count)-1):
+    while (i <= len(run_count) - 1):
         count = 1
         ch = run_count[i]
         j = i
-        while (j < len(run_count)-1):
-            if (run_count[j] == run_count[j+1]):
-                count = count+1
-                j = j+1
+        while (j < len(run_count) - 1):
+            if (run_count[j] == run_count[j + 1]):
+                count = count + 1
+                j = j + 1
             else:
                 break
         run.append([ch, count])
-        i = j+1
-    return(run)
+        i = j + 1
+    return (run)
 
 
 def process_file(file_path):
     res = {}
 
-    with open(file_path,) as f:
+    with open(file_path, ) as f:
 
         data = json.load(f)
         keys = list(data.values())
@@ -45,12 +45,12 @@ def process_file(file_path):
             first = start_idx
             second = pair[1] + start_idx
 
-            if(i == 0):
+            if (i == 0):
                 second -= 1
 
             data_keys = list(data.keys())
 
-            if(second == len(data_keys)):
+            if (second == len(data_keys)):
                 second -= 1
 
             first = data_keys[first]
@@ -68,7 +68,7 @@ def write_file(file_path, res):
     directory = dirname(file_path)
     try:
         stat(directory)
-    except(Exception):
+    except (Exception):
         mkdir(directory)
 
     with open('./' + file_path, 'w') as f:
@@ -83,7 +83,7 @@ def merg_boundry(total_res, res):
     res_last_idx = res_idxs[-1]
     res_last_value = total_res.get(res_last_idx)
 
-    if(last_value == res_last_value):
+    if (last_value == res_last_value):
         start = res_last_idx.split("-")[0]
         end = last_idx.split("-")[1]
         del res[last_idx]
@@ -110,8 +110,7 @@ if __name__ == "__main__":
     fh.setLevel(logging.INFO)
     logger.addHandler(fh)
 
-    files_list = [f for f in listdir(mypath)
-                  if isfile(join(mypath, f)) and ".json" in f]
+    files_list = [f for f in listdir(mypath) if isfile(join(mypath, f)) and ".json" in f]
 
     files_list.sort(key=lambda x: int(x.split("-")[1]))
 

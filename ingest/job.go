@@ -7,11 +7,12 @@ import (
 )
 
 // newIngestionJob Creates a new ingestion job instance
-func newIngestionJob(jid int64, startIdx int64, framesCount int64) ingestionJob {
+func newIngestionJob(jid int64, startIdx int64, framesCount int64, action string) ingestionJob {
 	return ingestionJob{
 		Jid:         jid,
 		StartIdx:    startIdx,
 		FramesCount: framesCount,
+		Action:      action,
 	}
 }
 

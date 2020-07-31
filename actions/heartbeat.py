@@ -69,6 +69,14 @@ class HeartBeat(Thread):
         logger.info(f'[{self.tag}] sending usage_stats to execution manager: {usage_stats}')
         self.socket.send_json(usage_stats)
 
+    def set_busy(self):
+        self.busy = True
+        self.send_heartbeat()
+
+    def set_free(self):
+        self.busy = False
+        self.send_heartbeat()
+
     def _get_gpu_usage_by_process(self):
         """
         THIS FUNCTION/CODE WAS ADOPTED FROM A BROKEN PYTHON PKG
@@ -88,6 +96,7 @@ class HeartBeat(Thread):
 
     def run(self):
         logger.info(f'[{self.tag}] Heartbeat thread started on process with id-{self.process_id}')
+        self.send_heartbeat()
 
         while time.sleep(self.update_frequency) or not self.gracefull_shutdown:
             try:

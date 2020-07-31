@@ -9,6 +9,9 @@
 *.test
 **__pycache*
 **.vscode*
+**/output/*
+**/model_config/*
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
