@@ -79,7 +79,7 @@ func (manager *IngestionManager) addNextJobInPipeline(jid string) {
 		errors.HandleError(err, fmt.Sprintf("%s Error while inserting next job jid: %s in %s",
 			logPrefix, jid, manager.queues.Todo), false)
 
-		log.Println(logPrefix, "done adding new job, new target jobs to finish %d", nextJid)
+		log.Println(logPrefix, "done adding new job, new target jobs to finish ", nextJid)
 		manager.jobCount = nextJid
 	}
 }
