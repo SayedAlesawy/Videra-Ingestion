@@ -39,7 +39,13 @@ type ingestionJob struct {
 
 // Job Types
 const (
-	MergeAction   = "merge"   // merge model ouptut in periods statsifying constraints
-	ExecuteAction = "execute" //Execute model on frames
-	NullAction    = "null"    // nothing to do here
+	mergeAction   = "merge"   // merge model ouptut in periods statsifying constraints
+	executeAction = "execute" //Execute model on frames
+	nullAction    = "null"    // nothing to do here
 )
+
+var actionPipeline = map[string]string{
+	executeAction: mergeAction,
+	mergeAction:   nullAction,
+	nullAction:    nullAction,
+}

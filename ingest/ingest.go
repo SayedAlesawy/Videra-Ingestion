@@ -125,7 +125,7 @@ func (manager *IngestionManager) populateJobsPool() int {
 			jobSize = remainder
 		}
 
-		job := newIngestionJob(jid, start, jobSize, ExecuteAction)
+		job := newIngestionJob(jid, start, jobSize, executeAction)
 		encodedJob, err := job.encode()
 		errors.HandleError(err, fmt.Sprintf("%s Unable to encode job: %+v", logPrefix, job), true)
 

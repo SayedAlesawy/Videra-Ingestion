@@ -26,6 +26,8 @@ jobs:
       run: |
         sudo apt-get update -qq && \
         sudo apt-get install -y -qq libzmq3-dev&&  \
+        go get -u golang.org/x/lint/golint
+        golint ./...
         make build
         
     - name: Check Python Code

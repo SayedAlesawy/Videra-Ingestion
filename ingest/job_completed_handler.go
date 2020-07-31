@@ -44,25 +44,19 @@ func (manager *IngestionManager) jobCompletedHandler(pid int, jid string) {
 // if not, it fetches the next action to be executed
 // and adds it to the todo queue
 func (manager *IngestionManager) addNextJobInPipeline(jid string) {
-	// ingestion jobs pipeline
-	actionPipeline := map[string]string{
-		ExecuteAction: MergeAction,
-		MergeAction:   NullAction,
-		NullAction:    NullAction,
-	}
-
 	jidNum, err := strconv.Atoi(jid)
 	errors.HandleError(err, fmt.Sprintf("%s Error while inserting subsquent job in pipeline for job: %s",
 		logPrefix, jid), false)
 
-	jobData, fetchStatus := manager.getJobToken(jidNum)
+	jobData, fetchStatus := manager.getJob(jidNum)
 	if fetchStatus == false {
 		log.Println(logPrefix, fmt.Sprintf("Failed to fetch next job data"))
 		return
 	}
 
 	actionType := jobData.Action
-	if actionPipeline[actionType] != NullAction {
+	nextAction, exists := actionPipeline[actionType]
+	if nextAction != nullAction && exists {
 		nextJid := manager.jobCount + 1
 		jobData.Action = actionPipeline[actionType]
 
@@ -71,15 +65,15 @@ func (manager *IngestionManager) addNextJobInPipeline(jid string) {
 
 		jobTokens := map[string]string{fmt.Sprintf("%d", nextJid): encodedJob}
 
+		err = manager.insertJobsInQueue(manager.queues.Todo, nextJid)
+		errors.HandleError(err, fmt.Sprintf("%s Error while inserting next job jid: %s in active jobs area",
+			logPrefix, jid), false)
+
 		err = manager.insertJobTokens(jobTokens)
 		errors.HandleError(err, fmt.Sprintf("%s Error while inserting next job jid: %s in %s",
 			logPrefix, jid, manager.queues.Todo), false)
 
-		err = manager.insertJobsInQueue(manager.queues.Todo, nextJid)
-		errors.HandleError(err, fmt.Sprintf("%s Error while inserting next job jid: %s in %s",
-			logPrefix, jid, manager.queues.Todo), false)
-
-		log.Println(logPrefix, "done adding new job, new target jobs to finish ", nextJid)
+		log.Println(logPrefix, "Successfully inserted next job in pipeline with jid: ", nextJid)
 		manager.jobCount = nextJid
 	}
 }

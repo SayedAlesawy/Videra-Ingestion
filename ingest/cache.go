@@ -33,8 +33,8 @@ func (manager *IngestionManager) findJobInQueue(queue string, jobToken string) (
 	return false, nil
 }
 
-// getJobToken A function to get the job details
-func (manager *IngestionManager) getJobToken(jid int) (ingestionJob, bool) {
+// getJob A function to get the job details
+func (manager *IngestionManager) getJob(jid int) (ingestionJob, bool) {
 	jobData := ingestionJob{}
 
 	jobToken, err := manager.cache.HGet(manager.getJobTokensHashKey(), fmt.Sprintf("%d", jid)).Result()
@@ -43,7 +43,7 @@ func (manager *IngestionManager) getJobToken(jid int) (ingestionJob, bool) {
 	}
 
 	err = json.Unmarshal([]byte(jobToken), &jobData)
-	errors.HandleError(err, "Failed to parse job data", false)
+	errors.HandleError(err, fmt.Sprint(logPrefix, " Failed to parse job data for jid ", jid), false)
 	return jobData, true
 }
 
