@@ -1,3 +1,4 @@
+import datetime
 import mysql.connector
 from os import getenv
 
@@ -15,30 +16,17 @@ class DatabaseDriver:
                                        password=self.passsword,
                                        database=self.db_name)
 
-    def init_schema(self):
-        """
-        example
-        clip:
-            video_id: mm1
-            start_time: 00:11:23
-            end_time: 00:11:33
-            tag: anything
-        """
-        db_conn = self.connect()
-        db_cursor = db_conn.cursor()
-        db_cursor.execute(
-            "CREATE TABLE clips (id INT AUTO_INCREMENT PRIMARY KEY, \
-                video_id VARCHAR(255), start_time VARCHAR(255), end_time, tag VARCHAR(255))"
-        )
-
     def insert_clips(self, data):
         db_conn = self.connect()
         db_cursor = db_conn.cursor()
 
-        sql_statment = "INSERT INTO clips (video_id, start_time, end_time, tag) VALUES (%s, %s, %s, %s)"
+        sql_statment = "INSERT INTO clips (token, start_time, end_time, tag, updated_at, created_at)\
+             VALUES (%s, %s, %s, %s, %s, %s)"
+
         values = []
         for d in data:
-            values.append(d['video_id'], d['start_time'], d['end_time'], d['tag'])
+            values.append(d['video_id'], d['start_time'], d['end_time'], d['tag'],
+                          str(datetime.datetime.now()), str(datetime.datetime.now()))
 
         db_cursor.executemany(sql_statment, values)
 
