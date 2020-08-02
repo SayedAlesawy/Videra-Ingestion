@@ -13,12 +13,11 @@ logger = logging.getLogger()
 
 class taskManager:
     def __init__(self):
-        atexit.register(self.handle_shutdown)
-
         args = parse_process_args()
 
         self.heartbeat = HeartBeat(process_id=getpid())
         self.heartbeat.daemon = True
+        atexit.register(self.handle_shutdown)
 
         self.receiver = Receiver(cache_prefix=args.execution_group_id, pid=getpid())
         self.executor = ExecutionWorker(args.model_path, args.video_path)
