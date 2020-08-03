@@ -5,6 +5,7 @@ from heartbeat import HeartBeat
 from receiver import Receiver
 from params_parser import parse_process_args
 from executor.execution_worker import ExecutionWorker
+from merger.merge import Merger
 
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
@@ -12,18 +13,18 @@ logger = logging.getLogger()
 
 class taskManager:
     def __init__(self):
-        atexit.register(self.handle_shutdown)
-
         args = parse_process_args()
 
         self.heartbeat = HeartBeat(process_id=getpid())
         self.heartbeat.daemon = True
+        atexit.register(self.handle_shutdown)
 
         self.receiver = Receiver(cache_prefix=args.execution_group_id, pid=getpid())
         self.executor = ExecutionWorker(args.model_path, args.video_path)
+        self.merger = Merger(args.video_path)
 
         self.action_map = {
-            'merge': self.executor.execute,
+            'merge': self.merger.execute,
             'execute': self.executor.execute
         }
 
