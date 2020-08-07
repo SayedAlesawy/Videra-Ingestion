@@ -41,6 +41,7 @@ class taskManager:
                 self.heartbeat.curr_job_id = job_key.decode('utf-8')
             except Exception as e:
                 logger.exception(f'[TASKMANAGER] job key is malformed : {e}')
+                self.flow_manager.reject_job(job_key)
                 continue
 
             self.heartbeat.set_busy()

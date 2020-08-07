@@ -37,6 +37,7 @@ class Merger():
             logger.info(f'{self.tag} video cap loaded success')
         except Exception as e:
             logger.exception(f'{self.tag} failed to load video due to : {e}')
+            raise
 
     def find_periods(self, labels_data):
         """

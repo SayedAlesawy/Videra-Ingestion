@@ -57,9 +57,14 @@ func (manager *IngestionManager) getActiveJobToken(pid int) (string, bool) {
 	return jobToken, true
 }
 
-// A function to get the current active job of a given pid
+// A function to remove the current active job of a given pid
 func (manager *IngestionManager) removeActiveJob(pid int) error {
 	return manager.cache.HDel(manager.getActiveJobKey(), fmt.Sprintf("%d", pid)).Err()
+}
+
+// A function to remove the ready status of a worker given pid
+func (manager *IngestionManager) removeWorkerReadyStatus(pid int) error {
+	return manager.cache.HDel(manager.getReadyWorkersKey(), fmt.Sprintf("%d", pid)).Err()
 }
 
 // moveInQueues A function to move an object pointed at by key from src to dst
@@ -79,6 +84,11 @@ func (manager *IngestionManager) getQueueLength(queue string) (int64, error) {
 	return manager.cache.LLen(queue).Result()
 }
 
+// setAsReady A function to set the ready status of a worker
+func (manager *IngestionManager) setAsReady(pid int) error {
+	return manager.cache.HSet(manager.getReadyWorkersKey(), fmt.Sprintf("%d", pid), "True").Err()
+}
+
 // flushCache A function to flush the queues and the active staging area
 func (manager *IngestionManager) flushCache() {
 	//Flush queues
@@ -86,11 +96,19 @@ func (manager *IngestionManager) flushCache() {
 	manager.cache.Del(manager.queues.InProgress)
 	manager.cache.Del(manager.queues.Done)
 
+	//Flush ready workers area
+	manager.cache.Del(manager.getReadyWorkersKey())
+
 	//Flush active jobs area
 	manager.cache.Del(manager.getActiveJobKey())
 
 	//Flush job tokens area
 	manager.cache.Del(manager.getJobTokensHashKey())
+}
+
+// getReadyWorkersKey A function to get the hash name where ready workers are stored
+func (manager *IngestionManager) getReadyWorkersKey() string {
+	return fmt.Sprintf("%s:%s:%s", manager.cachePrefix, "ingestion", "ready")
 }
 
 // getActiveJobKey A function to get the hash name where active jobs are stored

@@ -96,7 +96,6 @@ class HeartBeat(Thread):
 
     def run(self):
         logger.info(f'[{self.tag}] Heartbeat thread started on process with id-{self.process_id}')
-        self.send_heartbeat()
 
         while time.sleep(self.update_frequency) or not self.gracefull_shutdown:
             try:

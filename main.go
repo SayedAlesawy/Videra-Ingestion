@@ -17,14 +17,14 @@ func main() {
 	//Init a processes manager
 	processesManager := process.ProcessesManagerInstance()
 
+	//Execute all processes
+	processesList := processesManager.Start()
+
 	//Init ingestion manager
-	ingestionManager := ingest.IngestionManagerInstance()
+	ingestionManager := ingest.IngestionManagerInstance(processesList)
 
 	//Start ingestion manager
 	ingestionManager.Start(signals)
-
-	//Execute all processes
-	processesList := processesManager.Start()
 
 	//Init a health check monitor
 	monitor := health.MonitorInstance(processesList)

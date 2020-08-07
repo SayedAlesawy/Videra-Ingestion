@@ -1,4 +1,5 @@
 import redis
+import time
 import json
 import logging
 
@@ -7,7 +8,7 @@ logger = logging.getLogger()
 
 
 class FlowManager:
-    def __init__(self, cache_prefix, pid, redis_host='localhost', redis_port=6379):
+    def __init__(self, cache_prefix, pid, redis_host='localhost', redis_port=6379, update_frequency=1):
         self.tag = '[RECIEVER]'
         prefix = f'{cache_prefix}:ingestion'
         self.todo_list = f'{prefix}:todo'
@@ -15,9 +16,14 @@ class FlowManager:
         self.done_list = f'{prefix}:done'
         self.jobs = f'{prefix}:jobs'
         self.active_jobs = f'{prefix}:active_jobs'
+        self.handshake = f'{prefix}:ready'
+
+        self.is_ready = False
+        self.update_frequency = update_frequency
         self.pid = str(pid)
 
         self.initializeConnection(redis_host, redis_port)
+        self.request_handshake()
 
     def initializeConnection(self, redis_host, redis_port):
         logger.info(f'{self.tag} intializing connection with redis on host: {redis_host}, port: {redis_port}')
@@ -28,6 +34,20 @@ class FlowManager:
             logger.exception(f'{self.tag} failed to intialize connection with redis due to: {err}')
             raise
 
+    def request_handshake(self):
+        logger.info(f'{self.tag} requesting handshak on key set {self.handshake} for pid {self.pid}')
+        self.redis_instance.hset(self.handshake, self.pid, 'False')
+        logger.info(f'{self.tag} requested handshak on key set {self.handshake} for pid {self.pid} successfully')
+
+    def check_handshake(self):
+        logger.info(f'{self.tag} polling on handshake')
+        while time.sleep(1) or self.is_ready is False:
+            current_state = self.redis_instance.hget(self.handshake, self.pid).decode('utf-8')
+            logger.info(f'{self.tag} registration state: {current_state}')
+            if current_state == 'True':
+                self.is_ready = True
+                return
+
     def get_new_job(self):
         """
         checks todo queue for new jobs
@@ -36,6 +56,9 @@ class FlowManager:
         fetches the job info from the jobs mapping set
         returns both the job metainfo and the job key
         """
+        if self.is_ready is False:
+            self.check_handshake()
+
         while True:
             job_meta_string = None
             job_md5_hash = None
