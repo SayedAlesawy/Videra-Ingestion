@@ -20,8 +20,8 @@ class taskManager:
         atexit.register(self.handle_shutdown)
 
         self.receiver = Receiver(cache_prefix=args.execution_group_id, pid=getpid())
-        self.executor = ExecutionWorker(args.model_path, args.video_path)
-        self.merger = Merger(args.video_path)
+        self.executor = ExecutionWorker(args.model_path, args.video_path, args.model_config_path)
+        self.merger = Merger(args.video_path, args.model_config_path)
 
         self.action_map = {
             'merge': self.merger.execute,
@@ -47,11 +47,15 @@ class taskManager:
 
             action = self.action_map.get(job_meta['action'])
             if action:
-                action(job_meta)
-            else:
-                logger.warning(f'[TASKMANAGER] action {job_meta["action"]} not defined | ignoring job')
+                try:
+                    action(job_meta)
 
-            self.receiver.mark_job_as_done(job_key)
+                    self.receiver.mark_job_as_done(job_key)
+                except Exception as e:
+                    logger.exception(f'[TASKMANAGER] failed to execute action on job {job_meta.get("jid")} | {e}')
+            else:
+                logger.warning(f'[TASKMANAGER] action {job_meta.get("action")} not defined | ignoring job')
+
             self.heartbeat.set_free()
 
         self.heartbeat.join()
