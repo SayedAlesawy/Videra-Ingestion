@@ -35,11 +35,18 @@ class Receiver:
             raise
 
     def request_handshake(self):
+        logger.info(f'{self.tag} requesting handshak on key set {self.handshake} for pid {self.pid}')
         self.redis_instance.hset(self.handshake, self.pid, 'False')
-    
+        logger.info(f'{self.tag} requested handshak on key set {self.handshake} for pid {self.pid} successfully')
+
     def check_handshake(self):
-        while time.sleep(self.update_frequency) or not self.is_ready:
-            self.is_ready = self.redis_instance.hset(self.handshake, self.pid) == 'True'
+        logger.info(f'{self.tag} polling on handshake')
+        while time.sleep(1) or self.is_ready is False:
+            current_state = self.redis_instance.hget(self.handshake, self.pid).decode('utf-8')
+            logger.info(f'{self.tag} registration state: {current_state}')
+            if current_state == 'True':
+                self.is_ready = True
+                return
 
     def get_new_job(self):
         """
@@ -49,7 +56,7 @@ class Receiver:
         fetches the job info from the jobs mapping set
         returns both the job metainfo and the job key
         """
-        if not self.is_ready:
+        if self.is_ready is False:
             self.check_handshake()
 
         while True:
