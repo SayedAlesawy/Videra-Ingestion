@@ -24,7 +24,7 @@ var ingestionManagerOnce sync.Once
 var ingestionManagerInstance *IngestionManager
 
 // IngestionManagerInstance A function to return an ingestion manager instance
-func IngestionManagerInstance() *IngestionManager {
+func IngestionManagerInstance(workersList []process.Process) *IngestionManager {
 	ingestionManagerOnce.Do(func() {
 		configManager := config.ConfigurationManagerInstance("config/config_files")
 		configObj := configManager.IngestionManagerConfig("ingestion_manager.yaml")
@@ -37,7 +37,7 @@ func IngestionManagerInstance() *IngestionManager {
 			startIdx:          params.StartIdx,
 			frameCount:        params.FrameCount,
 			jobSize:           configObj.JobSize,
-			workers:           make(map[int]process.Process),
+			workers:           initWorkers(workersList),
 			workersListMutex:  &sync.Mutex{},
 			cache:             cacheInstance,
 			cachePrefix:       params.ExecutionGroupID,
@@ -73,6 +73,17 @@ func (manager *IngestionManager) Shutdown() {
 	manager.flushCache()
 
 	log.Println(logPrefix, "Ingestion Manager shutdown successfully")
+}
+
+// initWorkers A function to init the ingestion workers list
+func initWorkers(workersList []process.Process) map[int]process.Process {
+	workers := make(map[int]process.Process)
+
+	for _, worker := range workersList {
+		workers[worker.Pid] = worker
+	}
+
+	return workers
 }
 
 // checkDone A function to check if all ingestion jobs are done or not
