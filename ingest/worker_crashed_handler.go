@@ -59,6 +59,10 @@ func (manager *IngestionManager) workerCrashedHandler(pid int) {
 		//Remove the worker's active job
 		err = manager.removeActiveJob(pid)
 		errors.HandleError(err, fmt.Sprintf("%s Error while removing active job for worker pid: %d ", logPrefix, pid), false)
+
+		//Remove the worker's ready status
+		err = manager.removeWorkerReadyStatus(pid)
+		errors.HandleError(err, fmt.Sprintf("%s Error while removing ready status for worker pid: %d ", logPrefix, pid), false)
 	}
 
 	//Remove the worker from the list of online workers and clean up tcp connection
