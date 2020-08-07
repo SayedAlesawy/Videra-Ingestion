@@ -2,7 +2,7 @@ import logging
 import atexit
 from os import getpid
 from heartbeat import HeartBeat
-from receiver import Receiver
+from flow_manager import FlowManager
 from params_parser import parse_process_args
 from executor.execution_worker import ExecutionWorker
 from merger.merge import Merger
@@ -19,7 +19,7 @@ class taskManager:
         self.heartbeat.daemon = True
         atexit.register(self.handle_shutdown)
 
-        self.receiver = Receiver(cache_prefix=args.execution_group_id, pid=getpid())
+        self.flow_manager = FlowManager(cache_prefix=args.execution_group_id, pid=getpid())
         self.executor = ExecutionWorker(args.model_path, args.video_path, args.model_config_path)
         self.merger = Merger(args.video_path, args.model_config_path)
 
@@ -36,7 +36,7 @@ class taskManager:
         self.heartbeat.start()
 
         while True:
-            job_meta, job_key = self.receiver.get_new_job()
+            job_meta, job_key = self.flow_manager.get_new_job()
             try:
                 self.heartbeat.curr_job_id = job_key.decode('utf-8')
             except Exception as e:
@@ -50,9 +50,10 @@ class taskManager:
                 try:
                     action(job_meta)
 
-                    self.receiver.mark_job_as_done(job_key)
+                    self.flow_manager.mark_job_as_done(job_key)
                 except Exception as e:
                     logger.exception(f'[TASKMANAGER] failed to execute action on job {job_meta.get("jid")} | {e}')
+                    self.flow_manager.reject_job(job_key)
             else:
                 logger.warning(f'[TASKMANAGER] action {job_meta.get("action")} not defined | ignoring job')
 

@@ -6,7 +6,7 @@ logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
 
-class Receiver:
+class FlowManager:
     def __init__(self, cache_prefix, pid, redis_host='localhost', redis_port=6379):
         self.tag = '[RECIEVER]'
         prefix = f'{cache_prefix}:ingestion'
@@ -55,6 +55,17 @@ class Receiver:
                 return job_meta, job_md5_hash
             except Exception as err:
                 logger.exception(f'{self.tag} failed to process job meta due to: {err}')
+
+    def reject_job(self, job_key):
+        """
+        sends the job back to todo list
+        """
+        atomic_pipeline = self.redis_instance.pipeline()
+
+        atomic_pipeline.lrem(self.inprogress_list, 0, job_key)
+        atomic_pipeline.rpush(self.todo_list, job_key)
+        atomic_pipeline.hdel(self.active_jobs, self.pid)
+        atomic_pipeline.execute()
 
     def mark_job_as_done(self, job_key):
         """
