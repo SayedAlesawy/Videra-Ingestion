@@ -10,14 +10,19 @@ logger = logging.getLogger()
 
 
 class ExecutionWorker():
-    def __init__(self, model_path, video_path):
+    def __init__(self, model_path, video_path, model_config_path):
         self.tag = '[EXECUTION_WORKER]'
         self.labels = {}
         self.model_path = model_path
         self.video_path = video_path
 
         self.load_model(model_path)
-        self.stride = 1
+        self.load_model_config(model_config_path)
+
+    def load_model_config(self, model_config_path):
+        with open(model_config_path, "r") as f:
+            self.stride = int(json.load(f).get('stride')) or 1
+            logger.info(f'{self.tag} operating with a stride of {self.stride}')
 
     def load_model(self, model_path):
         """
@@ -29,7 +34,8 @@ class ExecutionWorker():
             self.model_instance = pickle.loads(open(model_path, "rb").read())
             logger.info(f'{self.tag} model loaded success')
         except Exception as e:
-            logger.exception(f'failed to load model due to : {e}')
+            logger.exception(f'{self.tag} failed to load model from {model_path} due to : {e}')
+            raise
 
     def load_video(self, video_path):
         """
@@ -42,7 +48,8 @@ class ExecutionWorker():
             self.video_cap .set(cv2.CAP_PROP_POS_FRAMES, self.start_frame_idx)
             logger.info(f'{self.tag} video cap loaded success')
         except Exception as e:
-            logger.exception(f'failed to load video due to : {e}')
+            logger.exception(f'{self.tag} failed to load video from {video_path} due to : {e}')
+            raise
 
     def write_labels(self):
         """
@@ -53,8 +60,13 @@ class ExecutionWorker():
         video_file_name = path.basename(self.video_path)
         labels_file_name = f"{video_file_name}-{self.start_frame_idx}-{self.frame_end_index}.json"
         logger.info(f"{self.tag} writing output to {labels_file_name}")
-        with open(f"./output/{labels_file_name}", "w") as f:
-            json.dump(self.labels, f)
+
+        try:
+            with open(f"./output/{labels_file_name}", "w") as f:
+                json.dump(self.labels, f)
+        except Exception as e:
+            logger.exception(f'{self.tag} failed to write labels output for video {labels_file_name} due to: {e}')
+            raise
 
         self.labels.clear()
 
