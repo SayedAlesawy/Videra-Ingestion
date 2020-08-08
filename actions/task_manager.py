@@ -20,7 +20,7 @@ class taskManager:
         atexit.register(self.handle_shutdown)
 
         self.flow_manager = FlowManager(cache_prefix=args.execution_group_id, pid=getpid())
-        self.executor = ExecutionWorker(args.model_path, args.video_path, args.model_config_path)
+        self.executor = ExecutionWorker(args.model_path, args.video_path, args.model_config_path, args.code_path)
         self.merger = Merger(args.video_path, args.model_config_path)
 
         self.action_map = {
@@ -36,8 +36,8 @@ class taskManager:
         self.heartbeat.start()
 
         while True:
-            job_meta, job_key = self.flow_manager.get_new_job()
             try:
+                job_meta, job_key = self.flow_manager.get_new_job()
                 self.heartbeat.curr_job_id = job_key.decode('utf-8')
             except Exception as e:
                 logger.exception(f'[TASKMANAGER] job key is malformed : {e}')

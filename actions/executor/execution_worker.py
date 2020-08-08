@@ -1,41 +1,29 @@
 import logging
 import cv2
-import face_recognition
-import imutils
-import pickle
 import json
+import sys
 from os import path
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
 
 class ExecutionWorker():
-    def __init__(self, model_path, video_path, model_config_path):
+    def __init__(self, model_path, video_path, model_config_path, code_path):
         self.tag = '[EXECUTION_WORKER]'
         self.labels = {}
         self.model_path = model_path
         self.video_path = video_path
 
-        self.load_model(model_path)
         self.load_model_config(model_config_path)
+
+        sys.path.append(code_path)
+        from code_file import ModelExecutor # noqa
+        self.model_exec = ModelExecutor(model_path)
 
     def load_model_config(self, model_config_path):
         with open(model_config_path, "r") as f:
             self.stride = int(json.load(f).get('stride')) or 1
             logger.info(f'{self.tag} operating with a stride of {self.stride}')
-
-    def load_model(self, model_path):
-        """
-        user-defined method or we could support standard known formats
-        to be loaded by us(h5, ...)
-        """
-        logger.info(f'{self.tag} loading model ....')
-        try:
-            self.model_instance = pickle.loads(open(model_path, "rb").read())
-            logger.info(f'{self.tag} model loaded success')
-        except Exception as e:
-            logger.exception(f'{self.tag} failed to load model from {model_path} due to : {e}')
-            raise
 
     def load_video(self, video_path):
         """
@@ -114,37 +102,9 @@ class ExecutionWorker():
 
     def execute_packet(self, data_packet, index):
         try:
-            lbl = self.run_model(data_packet)
+            lbl = self.model_exec.run_model(data_packet)
             self.labels[self.start_frame_idx + index] = lbl
         except Exception as e:  # the model may fail for many reasons, we need to handle failures in labeling
             logger.error(f'model failed to label data packet due to: {e}')
             logger.debug(data_packet)
             self.labels[self.start_frame_idx + index] = None
-
-    def run_model(self, data_packet):
-        """
-        user-defined method
-        model is avaiable through self
-        expected output: label(string || numeric)
-        """
-        frame = data_packet[0]
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        rgb = imutils.resize(frame, width=750)
-
-        # detect the (x, y)-coordinates of the bounding boxes
-        # corresponding to each face in the input frame, then compute
-        # the facial embeddings for each face
-        boxes = face_recognition.face_locations(rgb, model='hog')
-        encodings = face_recognition.face_encodings(rgb, boxes)
-
-        label = False
-        # loop over the facial embeddings
-        for encoding in encodings:
-            # attempt to match each face in the input image to our known
-            # encodings
-            matches = face_recognition.compare_faces(self.model_instance["encodings"], encoding)
-            label = True in matches
-            if(label):
-                break
-
-        return label

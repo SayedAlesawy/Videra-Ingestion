@@ -11,3 +11,4 @@ process_groups:
       - flag: video-path
       - flag: model-path
       - flag: model-config-path
+      - flag: code-path
