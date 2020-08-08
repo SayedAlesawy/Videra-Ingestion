@@ -13,7 +13,7 @@ class DatabaseDriver:
         self.host = getenv('DB_HOST', 'localhost')
         self.username = getenv('DB_USER', 'root')
         self.passsword = getenv('DB_PASSWORD', 'as')
-        self.db_name = getenv('DB_NAME', 'videra')
+        self.db_name = getenv('DB_NAME', 'videra_storage')
 
     def connect(self):
         logger.info(f'{self.tag} establishing a new db connection')
