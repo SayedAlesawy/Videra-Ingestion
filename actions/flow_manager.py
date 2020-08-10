@@ -41,11 +41,11 @@ class FlowManager:
 
     def check_handshake(self):
         logger.info(f'{self.tag} polling on handshake')
-        while time.sleep(1) or self.is_ready is False:
+        while time.sleep(self.update_frequency):
             current_state = self.redis_instance.hget(self.handshake, self.pid).decode('utf-8')
-            logger.info(f'{self.tag} registration state: {current_state}')
+            logger.info(f'{self.tag} handshake state: {current_state}')
+
             if current_state == 'True':
-                self.is_ready = True
                 return
 
     def get_new_job(self):
@@ -56,8 +56,7 @@ class FlowManager:
         fetches the job info from the jobs mapping set
         returns both the job metainfo and the job key
         """
-        if self.is_ready is False:
-            self.check_handshake()
+        self.check_handshake()
 
         while True:
             job_meta_string = None

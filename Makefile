@@ -15,4 +15,5 @@ run: build
 	-frame-count=$(frame-count)
 
 # Example command
-# make execution-group-id=exec_group_1 video-path=/home/sayed/series/test/file.txt model-path=/home/sayed/series/test/file.txt model-config-path=/home/sayed/series/test/file.txt start-idx=5 frame-count=50 -code-path ./path/to/code_driectory run
+# orch: make execution-group-id=exec_group_1 video-path=/home/sayed/series/test/file.txt model-path=/home/sayed/series/test/file.txt model-config-path=/home/sayed/series/test/file.txt start-idx=5 frame-count=50 -code-path ./path/to/code_driectory run
+# single process: python ./actions/main.py  -execution-group-id=exec_group_1 -video-path=./mm.mp4 -model-path=./model_config/t.pickle -model-config-path=./model_config/model_config.json -code-path=./actions/executor/

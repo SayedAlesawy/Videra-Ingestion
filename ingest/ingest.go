@@ -38,6 +38,7 @@ func IngestionManagerInstance(workersList []process.Process) *IngestionManager {
 			frameCount:        params.FrameCount,
 			jobSize:           configObj.JobSize,
 			workers:           initWorkers(workersList),
+			doneJobSet:        make(map[string]bool),
 			workersListMutex:  &sync.Mutex{},
 			cache:             cacheInstance,
 			cachePrefix:       params.ExecutionGroupID,

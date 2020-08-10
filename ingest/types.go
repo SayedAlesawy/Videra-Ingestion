@@ -20,6 +20,7 @@ type IngestionManager struct {
 	cachePrefix       string                  //Prefix for cache keys used for scoping
 	jobCount          int                     //Total number of executed jobs
 	checkDoneInterval time.Duration           //Frequency of checking if all jobs are done
+	doneJobSet        map[string]bool         //jids of jobs that have been recieved and moved to done
 }
 
 // Queue Defines a queue used in the ingestion manager

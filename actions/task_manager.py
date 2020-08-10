@@ -50,8 +50,6 @@ class taskManager:
             if action:
                 try:
                     action(job_meta)
-
-                    self.flow_manager.mark_job_as_done(job_key)
                 except Exception as e:
                     logger.exception(f'[TASKMANAGER] failed to execute action on job {job_meta.get("jid")} | {e}')
                     self.flow_manager.reject_job(job_key)

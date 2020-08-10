@@ -67,6 +67,11 @@ func (manager *IngestionManager) removeWorkerReadyStatus(pid int) error {
 	return manager.cache.HDel(manager.getReadyWorkersKey(), fmt.Sprintf("%d", pid)).Err()
 }
 
+// removeJobFromeQueue A function to remove jid record from specified queue
+func (manager *IngestionManager) removeJobFromeQueue(key string, qname string) error {
+	return manager.cache.LRem(qname, 0, key).Err()
+}
+
 // moveInQueues A function to move an object pointed at by key from src to dst
 func (manager *IngestionManager) moveInQueues(key string, src string, dst string) error {
 	pipe := manager.cache.TxPipeline()
