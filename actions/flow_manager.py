@@ -88,22 +88,3 @@ class FlowManager:
         atomic_pipeline.rpush(self.todo_list, job_key)
         atomic_pipeline.hdel(self.active_jobs, self.pid)
         atomic_pipeline.execute()
-
-    def mark_job_as_done(self, job_key):
-        """
-        moves the current job from in-progress queue to done
-        returns True upon successfull operation
-        """
-        logger.info(f'{self.tag} moving job from in progress to done list ...')
-        try:
-            atomic_pipeline = self.redis_instance.pipeline()
-
-            atomic_pipeline.lrem(self.inprogress_list, 0, job_key)
-            atomic_pipeline.rpush(self.done_list, job_key)
-
-            atomic_pipeline.execute()
-            logger.info(f'{self.tag} job moved to done list successfully')
-            return True
-        except Exception as err:
-            logger.exception(f'{self.tag} Failed to mark job as done due to {err}')
-            return False

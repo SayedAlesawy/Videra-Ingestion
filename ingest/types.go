@@ -19,6 +19,7 @@ type IngestionManager struct {
 	cache             *redis.Client           //Used by the manager to access a persistent caching layer
 	cachePrefix       string                  //Prefix for cache keys used for scoping
 	jobCount          int                     //Total number of executed jobs
+	nextJidAssignment int                     //Next Avaiable value for jid
 	checkDoneInterval time.Duration           //Frequency of checking if all jobs are done
 	doneJobSet        map[string]bool         //jids of jobs that have been recieved and moved to done
 }

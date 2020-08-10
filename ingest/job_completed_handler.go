@@ -76,7 +76,7 @@ func (manager *IngestionManager) addNextJobInPipeline(jid string) {
 	actionType := jobData.Action
 	nextAction, exists := actionPipeline[actionType]
 	if nextAction != nullAction && exists {
-		nextJid := manager.jobCount + 1
+		nextJid := manager.nextJidAssignment
 		jobData.Action = actionPipeline[actionType]
 
 		encodedJob, err := jobData.encode()
@@ -93,6 +93,6 @@ func (manager *IngestionManager) addNextJobInPipeline(jid string) {
 			logPrefix, jid), false)
 
 		log.Println(logPrefix, "Successfully inserted next job in pipeline with jid: ", nextJid)
-		manager.jobCount = nextJid
+		manager.nextJidAssignment++
 	}
 }

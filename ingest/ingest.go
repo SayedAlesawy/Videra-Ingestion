@@ -59,7 +59,8 @@ func (manager *IngestionManager) Start(done chan os.Signal) {
 
 	log.Println(logPrefix, fmt.Sprintf("Inserting jobs in %s", manager.queues.Todo))
 
-	manager.jobCount = manager.populateJobsPool()
+	manager.nextJidAssignment = manager.populateJobsPool() + 1
+	manager.jobCount = (manager.nextJidAssignment - 1) * (len(actionPipeline) - 1)
 
 	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", manager.jobCount, manager.queues.Todo))
 
