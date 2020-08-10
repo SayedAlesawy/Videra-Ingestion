@@ -50,9 +50,10 @@ func (manager *IngestionManager) markJobAsDone(jid string, pid int) {
 	//Mark the worker as not busy
 	manager.updateWorkerBusyStatus(pid, false)
 	// Allow worker to take a new job
-	manager.setAsReady(pid)
-
 	manager.doneJobSet[jid] = true // mark job as done
+	manager.setAsReady(pid)
+	manager.updateProgressIndicator()
+
 	log.Println(logPrefix, fmt.Sprintf("Worker with pid: %d completed executing job with jid: %s", pid, jid))
 
 	log.Println(logPrefix, fmt.Sprintf("checking jid: %s for subsquent jobs", jid))

@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ type IngestionManager struct {
 	nextJidAssignment int                     //Next Avaiable value for jid
 	checkDoneInterval time.Duration           //Frequency of checking if all jobs are done
 	doneJobSet        map[string]bool         //jids of jobs that have been recieved and moved to done
+	videoToken        string                  //video token/id used to reference it in the database
 }
 
 // Queue Defines a queue used in the ingestion manager
@@ -51,3 +53,10 @@ var actionPipeline = map[string]string{
 	mergeAction:   nullAction,
 	nullAction:    nullAction,
 }
+
+var (
+	dbPassword = os.Getenv("DB_PASSWORD") // dbPassword password for mysql instance
+	dbUser     = os.Getenv("DB_USER")     // dbUser username for mysql instance
+	dbHost     = os.Getenv("DB_HOST")     // dbHost host value for mysql instance
+	dbName     = os.Getenv("DB_NAME")     // dbName name of database for mysql instance
+)

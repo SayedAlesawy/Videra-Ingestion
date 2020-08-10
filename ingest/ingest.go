@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ func IngestionManagerInstance(workersList []process.Process) *IngestionManager {
 			cache:             cacheInstance,
 			cachePrefix:       params.ExecutionGroupID,
 			checkDoneInterval: time.Duration(configObj.CheckDoneInterval) * time.Second,
+			videoToken:        filepath.Base(params.VideoPath),
 		}
 
 		manager.getQueueNames(configObj.Queues)
@@ -61,6 +63,8 @@ func (manager *IngestionManager) Start(done chan os.Signal) {
 
 	manager.nextJidAssignment = manager.populateJobsPool() + 1
 	manager.jobCount = (manager.nextJidAssignment - 1) * (len(actionPipeline) - 1)
+
+	manager.updateTotalJobsIndicator() // set total count of jobs in db
 
 	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", manager.jobCount, manager.queues.Todo))
 
