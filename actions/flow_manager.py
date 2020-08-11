@@ -23,7 +23,6 @@ class FlowManager:
         self.pid = str(pid)
 
         self.initializeConnection(redis_host, redis_port)
-        self.request_handshake()
 
     def initializeConnection(self, redis_host, redis_port):
         logger.info(f'{self.tag} intializing connection with redis on host: {redis_host}, port: {redis_port}')
@@ -46,6 +45,7 @@ class FlowManager:
             logger.info(f'{self.tag} handshake state: {current_state}')
 
             if current_state == 'True':
+                self.request_handshake()
                 return
 
     def get_new_job(self):

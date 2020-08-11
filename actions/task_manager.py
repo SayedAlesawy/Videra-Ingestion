@@ -21,7 +21,7 @@ class taskManager:
 
         self.flow_manager = FlowManager(cache_prefix=args.execution_group_id, pid=getpid())
         self.executor = ExecutionWorker(args.model_path, args.video_path, args.model_config_path, args.code_path)
-        self.merger = Merger(args.video_path, args.model_config_path)
+        self.merger = Merger(args.video_path, args.model_config_path, args.video_token)
 
         self.action_map = {
             'merge': self.merger.execute,

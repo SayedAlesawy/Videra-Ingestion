@@ -25,6 +25,7 @@ const (
 	modelPathFlag        = "model-path"
 	modelConfigPathFlag  = "model-config-path"
 	codePathFlag         = "code-path"
+	videoTokenFlag       = "video-token"
 	startIdxFlag         = "start-idx"
 	frameCountFlag       = "frame-count"
 )
@@ -43,6 +44,7 @@ func OrchestratorParamsInstance() *OrchestratorParams {
 		modelPath := flag.String(modelPathFlag, "", "path to the model to be applied")
 		configPath := flag.String(modelConfigPathFlag, "", "path to the model config to be applied")
 		codePath := flag.String(codePathFlag, "", "path to the code file provided by user to run model")
+		videoToken := flag.String(videoTokenFlag, "", "the unique identifying string of the video")
 		startIdx := flag.Int64(startIdxFlag, -1, "starting index from which to process video at path")
 		frameCount := flag.Int64(frameCountFlag, -1, "number of frames to process starting from start-idx")
 
@@ -53,6 +55,7 @@ func OrchestratorParamsInstance() *OrchestratorParams {
 			ModelPath:        validatePath(validate(modelPathFlag, *modelPath).(string)),
 			ModelConfigPath:  validatePath(validate(modelConfigPathFlag, *configPath).(string)),
 			CodePath:         validate(codePathFlag, *codePath).(string),
+			VideoToken:       validate(videoTokenFlag, *videoToken).(string),
 			ExecutionGroupID: validate(executionGroupIDFlag, *execGroupID).(string),
 			StartIdx:         validate(startIdxFlag, *startIdx).(int64),
 			FrameCount:       validate(frameCountFlag, *frameCount).(int64),
@@ -72,10 +75,12 @@ func (orchParams *OrchestratorParams) mapParams() {
 	paramsMap[videopathFlag] = orchParams.VideoPath
 	paramsMap[modelPathFlag] = orchParams.ModelPath
 	paramsMap[modelConfigPathFlag] = orchParams.ModelConfigPath
+	paramsMap[codePathFlag] = orchParams.CodePath
+	paramsMap[videoTokenFlag] = orchParams.VideoToken
+
 	paramsMap[executionGroupIDFlag] = orchParams.ExecutionGroupID
 	paramsMap[startIdxFlag] = orchParams.StartIdx
 	paramsMap[frameCountFlag] = orchParams.FrameCount
-	paramsMap[codePathFlag] = orchParams.CodePath
 
 	orchParams.ArgsMap = paramsMap
 }

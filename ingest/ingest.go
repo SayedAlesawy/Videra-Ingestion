@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -44,7 +43,7 @@ func IngestionManagerInstance(workersList []process.Process) *IngestionManager {
 			cache:             cacheInstance,
 			cachePrefix:       params.ExecutionGroupID,
 			checkDoneInterval: time.Duration(configObj.CheckDoneInterval) * time.Second,
-			videoToken:        filepath.Base(params.VideoPath),
+			videoToken:        params.VideoToken,
 		}
 
 		manager.getQueueNames(configObj.Queues)

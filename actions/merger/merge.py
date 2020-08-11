@@ -8,10 +8,12 @@ logger = logging.getLogger()
 
 
 class Merger():
-    def __init__(self, video_path, model_config_path):
+    def __init__(self, video_path, model_config_path, video_token):
         self.tag = '[MERGER]'
         self.db_driver = DatabaseDriver()
         self.video_path = video_path
+        self.video_token = video_token
+
         self.load_video_meta(video_path)
         self.load_model_config(model_config_path)
 
@@ -59,7 +61,7 @@ class Merger():
             else:
                 if current_period_length > min_accepted_period - 1:
                     grouped_data.append({
-                        'video_id': path.basename(self.video_path),
+                        'video_id': self.video_token,
                         'start_time': int(period_start_frame) / self.fps,
                         'end_time': (int(period_start_frame) + current_period_length) / self.fps,
                         'tag': current_label
