@@ -22,7 +22,9 @@ class Merger():
 
     def load_model_config(self, model_config_path):
         with open(model_config_path, "r") as f:
-            self.min_period = int(json.load(f).get('min_clip_period')) or 1
+            model_config = json.load(f)
+            self.min_period = int(model_config.get('min_clip_period')) or 1  # in secs
+            self.miss_tolerance = int(model_config.get('frame_miss_tolerance')) or 5  # in frames
             logger.info(f'{self.tag} operating with min_period of {self.min_period}')
 
     def load_video_meta(self, video_path):
@@ -39,36 +41,43 @@ class Merger():
             logger.exception(f'{self.tag} failed to load video due to : {e}')
             raise
 
+    def check_period(self, min_accepted_period, group_end, group_start, grouped_data, label):
+        if min_accepted_period <= group_end - group_start + 1:
+            grouped_data.append({
+                'video_id': path.basename(self.video_path),
+                'start_time': group_start / self.fps,
+                'end_time': group_end / self.fps,
+                'tag': label
+            })
+
     def find_periods(self, labels_data):
         """
         finds periods with the same label
         """
         min_accepted_period = int(self.min_period * self.fps)
         grouped_data = []
-        frames_idxes = sorted(list(labels_data.keys()))
-        frames_idxes.append("RESERVED_LABEL")
+        labels_set = list(labels_data.keys())
 
-        current_period_length = 0
-        period_start_frame = -1
-        current_label = None
+        for label in labels_set:
+            frames_with_label = labels_data.get(label)
+            if(frames_with_label and len(frames_with_label)):
+                frames_with_label = sorted(frames_with_label)
+                group_start = int(frames_with_label[0])
+                group_end = group_start
 
-        for frame_idx in frames_idxes:
-            label = labels_data.get(frame_idx)
-            if label == current_label:
-                current_period_length += 1
-            else:
-                if current_period_length > min_accepted_period - 1:
-                    grouped_data.append({
-                        'video_id': path.basename(self.video_path),
-                        'start_time': int(period_start_frame) / self.fps,
-                        'end_time': (int(period_start_frame) + current_period_length) / self.fps,
-                        'tag': current_label
-                    })
-                    current_period_length = 0
+                for frame in frames_with_label[1:]:
+                    if abs(frame - group_end) <= self.miss_tolerance:
+                        # add new member to group
+                        group_end = int(frame)
+                    else:
+                        # group has ended, let's check it passes min perid check
+                        logger.info(f"{self.tag} checking period ({group_start},{group_end}) agianst min {min_accepted_period}")
+                        self.check_period(min_accepted_period, group_end, group_start, grouped_data, label)
+                        # start a new period
+                        group_start = int(frame)
+                        group_end = group_start
 
-                current_label = label
-                period_start_frame = frame_idx
-
+            self.check_period(min_accepted_period, group_end, group_start, grouped_data, label)
         return grouped_data
 
     def load_data_from_disk(self, labels_file_name):
