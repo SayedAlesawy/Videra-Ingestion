@@ -59,4 +59,5 @@ var (
 	dbUser     = os.Getenv("DB_USER")     // dbUser username for mysql instance
 	dbHost     = os.Getenv("DB_HOST")     // dbHost host value for mysql instance
 	dbName     = os.Getenv("DB_NAME")     // dbName name of database for mysql instance
+	dbPort     = os.Getenv("DB_PORT")     // dbPort port of
 )

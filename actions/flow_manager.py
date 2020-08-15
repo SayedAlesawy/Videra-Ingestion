@@ -2,13 +2,13 @@ import redis
 import time
 import json
 import logging
-
+import os
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
 
 class FlowManager:
-    def __init__(self, cache_prefix, pid, redis_host='localhost', redis_port=6379, update_frequency=1):
+    def __init__(self, cache_prefix, pid, redis_host=os.getenv('REDIS_HOST'), redis_port=6379, update_frequency=1):
         self.tag = '[RECIEVER]'
         prefix = f'{cache_prefix}:ingestion'
         self.todo_list = f'{prefix}:todo'

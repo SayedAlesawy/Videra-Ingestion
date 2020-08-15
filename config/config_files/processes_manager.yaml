@@ -1,6 +1,6 @@
 process_groups:
   - name: "executor"
-    replicas: 3
+    replicas: 4
     command: "./actions/venv/bin/python3"
     script: "./actions/main.py"
     arg_prefix: "-"
@@ -12,3 +12,4 @@ process_groups:
       - flag: model-path
       - flag: model-config-path
       - flag: code-path
+      - flag: video-token

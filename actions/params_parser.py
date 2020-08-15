@@ -29,7 +29,6 @@ def parse_process_args():
     parser.add_argument('-code-path', help='path to the code file provided by the user')
     parser.add_argument('-video-token', help='video identitfying token in database')
     args = parser.parse_args()
-
     if validate_args(args):
         return args
     else:

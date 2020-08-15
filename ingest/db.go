@@ -11,7 +11,7 @@ import (
 
 func (manager *IngestionManager) connectDB() *sql.DB {
 	log.Println(logPrefix, "starting a new database connection")
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", dbUser, dbPassword, dbName))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbPassword, dbHost, dbPort, dbName))
 	errors.HandleError(err, fmt.Sprintf("%s Failed to intialize mysql instance | %s", logPrefix, err), false)
 
 	err = db.Ping()
