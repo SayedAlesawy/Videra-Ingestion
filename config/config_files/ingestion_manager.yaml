@@ -1,4 +1,4 @@
-job_size: 200
+job_size: 150
 check_done_interval: 10
 queues:
   todo: ingestion:todo

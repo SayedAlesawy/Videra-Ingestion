@@ -1,6 +1,6 @@
 ip: '*'
 port: "9092"
-liveness_probe: 4
-readiness_probe: 10
+liveness_probe: 8
+readiness_probe: 20
 health_check_interval: 250
 liveness_tracking_interval: 250

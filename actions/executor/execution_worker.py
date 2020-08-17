@@ -59,6 +59,11 @@ class ExecutionWorker():
 
         self.labels.clear()
 
+    def check_if_written(self):
+        video_file_name = path.basename(self.video_path)
+        labels_file_name = f"{video_file_name}-{self.start_frame_idx}-{self.frame_end_index}.json"
+        return path.isfile(f"./output/{labels_file_name}")
+
     def execute(self, job_meta):
         """
         executes given job by calling appropiate methods in

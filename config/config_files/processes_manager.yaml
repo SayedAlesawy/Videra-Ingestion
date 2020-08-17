@@ -1,6 +1,6 @@
 process_groups:
   - name: "executor"
-    replicas: 4
+    replicas: 3
     command: "./actions/venv/bin/python3"
     script: "./actions/main.py"
     arg_prefix: "-"

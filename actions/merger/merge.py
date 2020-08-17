@@ -25,7 +25,7 @@ class Merger():
     def load_model_config(self, model_config_path):
         with open(model_config_path, "r") as f:
             model_config = json.load(f)
-            self.min_period = int(model_config.get('min_clip_period')) or 1  # in secs
+            self.min_period = float(model_config.get('min_clip_period')) or 1  # in secs
             self.miss_tolerance = int(model_config.get('frame_miss_tolerance')) or 5  # in frames
             logger.info(f'{self.tag} operating with min_period of {self.min_period}')
 
@@ -48,7 +48,7 @@ class Merger():
             grouped_data.append({
                 'video_id': self.video_token,
                 'start_time': group_start / self.fps,
-                'end_time': group_end / self.fps,
+                'end_time': max(group_end / self.fps, group_start / self.fps + 1),
                 'tag': label
             })
 

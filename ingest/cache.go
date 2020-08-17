@@ -8,7 +8,7 @@ import (
 )
 
 // insertTodoJobs A function to insert jobs into the todo queue
-func (manager *IngestionManager) insertJobsInQueue(queue string, jobs ...interface{}) error {
+func (manager *IngestionManager) insertJobsInQueue(queue string, reverse bool, jobs ...interface{}) error {
 	return manager.cache.LPush(queue, jobs...).Err()
 }
 

@@ -46,7 +46,7 @@ func (manager *IngestionManager) workerCrashedHandler(pid int) {
 						} else {
 							if !inTodo {
 								//Insert in todo
-								err := manager.insertJobsInQueue(manager.queues.Todo, activeJobToken)
+								err := manager.insertJobsInQueue(manager.queues.Todo, false, activeJobToken)
 								errors.HandleError(err, fmt.Sprintf("%s Error while inserting job in %s for worker pid: %d",
 									logPrefix, manager.queues.Todo, pid), false)
 							}
