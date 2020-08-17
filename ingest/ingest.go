@@ -149,7 +149,7 @@ func (manager *IngestionManager) populateJobsPool() int {
 		jobTokens[fmt.Sprintf("%d", jid)] = encodedJob
 	}
 
-	err := manager.insertJobsInQueue(manager.queues.Todo, jobs...)
+	err := manager.insertJobsInQueue(manager.queues.Todo, false, jobs...)
 	errors.HandleError(err, fmt.Sprintf("%s Unable to insert todo jobs on start up", logPrefix), true)
 
 	err = manager.insertJobTokens(jobTokens)
