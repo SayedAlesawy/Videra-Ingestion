@@ -27,8 +27,8 @@ def parse_process_args():
                         required=True)
     parser.add_argument('-execution-group-id', help='id asssigned to the execution manager, used to scope redis queues')
     parser.add_argument('-code-path', help='path to the code file provided by the user')
+    parser.add_argument('-video-token', help='video identitfying token in database')
     args = parser.parse_args()
-
     if validate_args(args):
         return args
     else:

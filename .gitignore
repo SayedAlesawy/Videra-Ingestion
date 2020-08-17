@@ -22,3 +22,5 @@
 
 # Ignore log files
 *.log
+**/code_file.py
+*.mkv

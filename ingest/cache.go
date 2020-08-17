@@ -8,7 +8,7 @@ import (
 )
 
 // insertTodoJobs A function to insert jobs into the todo queue
-func (manager *IngestionManager) insertJobsInQueue(queue string, jobs ...interface{}) error {
+func (manager *IngestionManager) insertJobsInQueue(queue string, reverse bool, jobs ...interface{}) error {
 	return manager.cache.LPush(queue, jobs...).Err()
 }
 
@@ -65,6 +65,11 @@ func (manager *IngestionManager) removeActiveJob(pid int) error {
 // A function to remove the ready status of a worker given pid
 func (manager *IngestionManager) removeWorkerReadyStatus(pid int) error {
 	return manager.cache.HDel(manager.getReadyWorkersKey(), fmt.Sprintf("%d", pid)).Err()
+}
+
+// removeJobFromeQueue A function to remove jid record from specified queue
+func (manager *IngestionManager) removeJobFromeQueue(key string, qname string) error {
+	return manager.cache.LRem(qname, 0, key).Err()
 }
 
 // moveInQueues A function to move an object pointed at by key from src to dst

@@ -3,6 +3,7 @@ import cv2
 import json
 import sys
 from os import path
+from collections import defaultdict
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
@@ -10,7 +11,7 @@ logger = logging.getLogger()
 class ExecutionWorker():
     def __init__(self, model_path, video_path, model_config_path, code_path):
         self.tag = '[EXECUTION_WORKER]'
-        self.labels = {}
+        self.labels = defaultdict(list)
         self.model_path = model_path
         self.video_path = video_path
 
@@ -58,6 +59,11 @@ class ExecutionWorker():
 
         self.labels.clear()
 
+    def check_if_written(self):
+        video_file_name = path.basename(self.video_path)
+        labels_file_name = f"{video_file_name}-{self.start_frame_idx}-{self.frame_end_index}.json"
+        return path.isfile(f"./output/{labels_file_name}")
+
     def execute(self, job_meta):
         """
         executes given job by calling appropiate methods in
@@ -103,8 +109,9 @@ class ExecutionWorker():
     def execute_packet(self, data_packet, index):
         try:
             lbl = self.model_exec.run_model(data_packet)
-            self.labels[self.start_frame_idx + index] = lbl
+            if lbl:
+                self.labels[lbl].append(self.start_frame_idx + index)
         except Exception as e:  # the model may fail for many reasons, we need to handle failures in labeling
             logger.error(f'model failed to label data packet due to: {e}')
             logger.debug(data_packet)
-            self.labels[self.start_frame_idx + index] = None
+            self.labels['failures'].append(self.start_frame_idx + index)

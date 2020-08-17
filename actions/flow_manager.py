@@ -2,13 +2,13 @@ import redis
 import time
 import json
 import logging
-
+import os
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger()
 
 
 class FlowManager:
-    def __init__(self, cache_prefix, pid, redis_host='localhost', redis_port=6379, update_frequency=1):
+    def __init__(self, cache_prefix, pid, redis_host=os.getenv('REDIS_HOST'), redis_port=6379, update_frequency=1):
         self.tag = '[RECIEVER]'
         prefix = f'{cache_prefix}:ingestion'
         self.todo_list = f'{prefix}:todo'
@@ -23,7 +23,6 @@ class FlowManager:
         self.pid = str(pid)
 
         self.initializeConnection(redis_host, redis_port)
-        self.request_handshake()
 
     def initializeConnection(self, redis_host, redis_port):
         logger.info(f'{self.tag} intializing connection with redis on host: {redis_host}, port: {redis_port}')
@@ -41,11 +40,12 @@ class FlowManager:
 
     def check_handshake(self):
         logger.info(f'{self.tag} polling on handshake')
-        while time.sleep(1) or self.is_ready is False:
+        while time.sleep(self.update_frequency):
             current_state = self.redis_instance.hget(self.handshake, self.pid).decode('utf-8')
-            logger.info(f'{self.tag} registration state: {current_state}')
+            logger.info(f'{self.tag} handshake state: {current_state}')
+
             if current_state == 'True':
-                self.is_ready = True
+                self.request_handshake()
                 return
 
     def get_new_job(self):
@@ -56,8 +56,7 @@ class FlowManager:
         fetches the job info from the jobs mapping set
         returns both the job metainfo and the job key
         """
-        if self.is_ready is False:
-            self.check_handshake()
+        self.check_handshake()
 
         while True:
             job_meta_string = None
@@ -89,22 +88,3 @@ class FlowManager:
         atomic_pipeline.rpush(self.todo_list, job_key)
         atomic_pipeline.hdel(self.active_jobs, self.pid)
         atomic_pipeline.execute()
-
-    def mark_job_as_done(self, job_key):
-        """
-        moves the current job from in-progress queue to done
-        returns True upon successfull operation
-        """
-        logger.info(f'{self.tag} moving job from in progress to done list ...')
-        try:
-            atomic_pipeline = self.redis_instance.pipeline()
-
-            atomic_pipeline.lrem(self.inprogress_list, 0, job_key)
-            atomic_pipeline.rpush(self.done_list, job_key)
-
-            atomic_pipeline.execute()
-            logger.info(f'{self.tag} job moved to done list successfully')
-            return True
-        except Exception as err:
-            logger.exception(f'{self.tag} Failed to mark job as done due to {err}')
-            return False

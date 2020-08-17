@@ -38,10 +38,12 @@ func IngestionManagerInstance(workersList []process.Process) *IngestionManager {
 			frameCount:        params.FrameCount,
 			jobSize:           configObj.JobSize,
 			workers:           initWorkers(workersList),
+			doneJobSet:        make(map[string]bool),
 			workersListMutex:  &sync.Mutex{},
 			cache:             cacheInstance,
 			cachePrefix:       params.ExecutionGroupID,
 			checkDoneInterval: time.Duration(configObj.CheckDoneInterval) * time.Second,
+			videoToken:        params.VideoToken,
 		}
 
 		manager.getQueueNames(configObj.Queues)
@@ -58,7 +60,10 @@ func (manager *IngestionManager) Start(done chan os.Signal) {
 
 	log.Println(logPrefix, fmt.Sprintf("Inserting jobs in %s", manager.queues.Todo))
 
-	manager.jobCount = manager.populateJobsPool()
+	manager.nextJidAssignment = manager.populateJobsPool() + 1
+	manager.jobCount = (manager.nextJidAssignment - 1) * (len(actionPipeline) - 1)
+
+	manager.updateTotalJobsIndicator() // set total count of jobs in db
 
 	log.Println(logPrefix, fmt.Sprintf("Successfully inserted %d jobs in %s", manager.jobCount, manager.queues.Todo))
 
@@ -144,7 +149,7 @@ func (manager *IngestionManager) populateJobsPool() int {
 		jobTokens[fmt.Sprintf("%d", jid)] = encodedJob
 	}
 
-	err := manager.insertJobsInQueue(manager.queues.Todo, jobs...)
+	err := manager.insertJobsInQueue(manager.queues.Todo, false, jobs...)
 	errors.HandleError(err, fmt.Sprintf("%s Unable to insert todo jobs on start up", logPrefix), true)
 
 	err = manager.insertJobTokens(jobTokens)

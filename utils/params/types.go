@@ -6,6 +6,7 @@ type OrchestratorParams struct {
 	ModelPath        string                 //Path of the user CV model to be applied
 	ModelConfigPath  string                 //Path of the user CV model config to be applied
 	CodePath         string                 //Path of the user code provided to run the model
+	VideoToken       string                 //unique identifying value of the video
 	ExecutionGroupID string                 //Unique ID for the execution group
 	StartIdx         int64                  //Start index from which processing would start
 	FrameCount       int64                  //Frame count to be processes
